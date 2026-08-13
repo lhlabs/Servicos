@@ -22,7 +22,7 @@
   <meta name="twitter:title" content="LzLabs | Soluções digitais para pequenos negócios">
   <meta name="twitter:description" content="Sites e ferramentas comerciais sob medida para pequenos negócios.">
 
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230b2825'/%3E%3Cpath d='M17 16v32h21v-8H26V16h-9Zm22 0-9 16h9l-5 16h8l9-24h-10l6-8h-8Z' fill='%23d5f3df'/%3E%3C/svg%3E">
+  <link rel="icon" type="image/svg+xml" href="./assets/logo-mark.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -376,17 +376,17 @@
       letter-spacing: -.03em;
     }
 
-    .brand-mark {
-      display: grid;
-      width: 38px;
-      height: 38px;
-      place-items: center;
-      border-radius: 11px;
-      background: var(--forest);
-      box-shadow: 0 8px 20px rgba(11,40,37,.16);
-      color: var(--mint);
-      font-size: .8rem;
-      letter-spacing: -.06em;
+    .brand-logo {
+      display: block;
+      width: 44px;
+      height: 44px;
+      flex: 0 0 auto;
+      object-fit: contain;
+      transition: transform .3s var(--ease);
+    }
+
+    .brand:hover .brand-logo {
+      transform: translateY(-1px);
     }
 
     .brand-copy {
@@ -1991,9 +1991,9 @@
       color: #fff;
     }
 
-    .site-footer .brand-mark {
-      background: var(--mint);
-      color: var(--forest);
+    .site-footer .brand-logo {
+      width: 46px;
+      height: 46px;
     }
 
     .site-footer .brand-copy small {
@@ -2591,7 +2591,7 @@
   <header class="site-header" id="siteHeader">
     <div class="container header-inner">
       <a class="brand" href="#inicio" aria-label="LzLabs — voltar ao início">
-        <span class="brand-mark" aria-hidden="true">LZ</span>
+        <img class="brand-logo" src="./assets/logo-mark.svg" width="44" height="44" alt="" aria-hidden="true">
         <span class="brand-copy">LzLabs<small>Soluções digitais</small></span>
       </a>
 
@@ -3071,7 +3071,7 @@
     <div class="container">
       <div class="footer-grid">
         <div class="footer-brand">
-          <a class="brand" href="#inicio" aria-label="LzLabs — voltar ao início"><span class="brand-mark" aria-hidden="true">LZ</span><span class="brand-copy">LzLabs<small>Soluções digitais</small></span></a>
+          <a class="brand" href="#inicio" aria-label="LzLabs — voltar ao início"><img class="brand-logo" src="./assets/logo-mark-light.svg" width="46" height="46" alt="" aria-hidden="true"><span class="brand-copy">LzLabs<small>Soluções digitais</small></span></a>
           <p>Soluções digitais simples, profissionais e personalizadas para pequenos negócios.</p>
           <a class="footer-whatsapp" href="https://wa.me/5549984163568?text=Ol%C3%A1%21%20Vi%20seu%20site%20e%20gostaria%20de%20saber%20mais%20sobre%20as%20solu%C3%A7%C3%B5es%20digitais." target="_blank" rel="noopener noreferrer"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.5 11.5a8.5 8.5 0 0 1-12.55 7.47L3 20l1.03-4.8A8.5 8.5 0 1 1 20.5 11.5Z"/></svg>+55 49 98416-3568</a>
         </div>

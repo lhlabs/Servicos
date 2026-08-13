@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 270 72" role="img" aria-labelledby="title desc">
+  <title id="title">LzLabs</title>
+  <desc id="desc">Logo LzLabs — soluções digitais</desc>
+  <g transform="translate(2 4) scale(.98)">
+    <path fill="#0B2825" d="M7 6h13v37.5c0 4.7 2.8 7.5 7.5 7.5H55v11H25.5C14 62 7 55 7 43.5V6Z"/>
+    <path fill="#0B2825" d="M27 6h31L34.5 42H58v11H21.5L45 17H27V6Z"/>
+    <path fill="#AEE4BF" d="m32.2 34.9 8-12.2h12.6l-8 12.2H32.2Z"/>
+  </g>
+  <text x="79" y="36" fill="#0B2825" font-family="Manrope, Inter, Arial, sans-serif" font-size="27" font-weight="800" letter-spacing="-1">LzLabs</text>
+  <text x="80" y="54" fill="#6B7976" font-family="Manrope, Inter, Arial, sans-serif" font-size="8.5" font-weight="700" letter-spacing="2.2">SOLUÇÕES DIGITAIS</text>
+</svg>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">LzLabs</title>
+  <desc id="desc">Monograma geométrico com as letras L e Z em versão clara</desc>
+  <path fill="#F8F9F6" d="M7 6h13v37.5c0 4.7 2.8 7.5 7.5 7.5H55v11H25.5C14 62 7 55 7 43.5V6Z"/>
+  <path fill="#F8F9F6" d="M27 6h31L34.5 42H58v11H21.5L45 17H27V6Z"/>
+  <path fill="#AEE4BF" d="m32.2 34.9 8-12.2h12.6l-8 12.2H32.2Z"/>
+</svg>
