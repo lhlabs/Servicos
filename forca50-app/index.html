@@ -6,139 +6,164 @@
 <meta name="theme-color" content="#0c1015">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="description" content="Força 50: treino dinâmico, cargas, checkpoints, presença e evolução.">
+<meta name="description" content="Força 50: treino, metas corporais, checkpoints, frequência e evolução.">
 <title>Força 50 — Treino & Evolução</title>
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="./style.css?v=6">
+<link rel="stylesheet" href="./style-v7.css?v=7">
 </head>
 <body>
 <div id="authGate" class="activation card">
   <div class="eyebrow">Força 50 • acesso</div>
   <h1>Entrar no Força 50</h1>
-  <p class="mut">Entre uma vez. A sessão fica salva neste navegador e é renovada automaticamente, mesmo depois de fechar o app.</p>
+  <p class="mut">Entre uma vez. A sessão permanece salva neste navegador e é renovada automaticamente.</p>
   <form id="loginForm" class="formgrid" style="margin-top:18px">
-    <div class="full"><label class="label">E-mail</label><input class="field" id="loginEmail" type="email" autocomplete="email" required placeholder="seu@email.com"></div>
-    <div class="full"><label class="label">Senha</label><input class="field" id="loginPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="••••••••"></div>
+    <div class="full"><label class="label">E-mail</label><input class="field" id="loginEmail" type="email" autocomplete="email" required></div>
+    <div class="full"><label class="label">Senha</label><input class="field" id="loginPassword" type="password" autocomplete="current-password" minlength="6" required></div>
     <div class="full actions" style="margin-top:4px"><button class="btn primary" id="loginBtn" type="submit">Entrar</button><button class="btn secondary" id="signupBtn" type="button">Criar conta</button></div>
   </form>
   <div id="authMsg" style="margin-top:12px"></div>
-  <div class="notice" style="margin-top:14px">Se você já usa o Meu Patrimônio com este Supabase, pode usar a mesma conta. O histórico do Força 50 continua em tabelas separadas.</div>
 </div>
 
 <div id="shell" hidden>
 <main class="app">
-  <header class="top">
-    <div><div class="brand">FORÇA <b>50</b></div><div class="sub">treino • carga • presença • evolução</div></div>
-    <div class="spacer"></div>
-    <div class="cloud" id="cloud">conectando</div>
-  </header>
+<header class="top">
+  <div><div class="brand">FORÇA <b>50</b></div><div class="sub">treino • metas • frequência • evolução</div></div>
+  <div class="spacer"></div><div class="cloud" id="cloud">conectando</div>
+</header>
 
-  <section class="view on" id="todayView">
-    <div class="hero">
-      <div class="eyebrow" id="todayEyebrow">Treino de hoje</div>
-      <h1 id="todayName">Carregando…</h1>
-      <div class="mut" id="todayMeta"></div>
-      <div class="actions">
-        <button class="btn primary" id="startToday">Abrir treino</button>
-        <button class="btn secondary" data-nav="progressView">Ver evolução</button>
-      </div>
-    </div>
-    <div class="metrics">
-      <div class="metric"><b id="mWeek">0/5</b><span>semana</span></div>
-      <div class="metric"><b id="mAttendance">—</b><span>presença 8 sem.</span></div>
-      <div class="metric"><b id="mSessions">0</b><span>treinos</span></div>
-      <div class="metric"><b id="mVolume">0</b><span>kg registrados</span></div>
-    </div>
+<section class="view on" id="todayView">
+  <div class="hero">
+    <div class="eyebrow">Treino de hoje • escolha livre</div>
+    <h1>Qual dos 5 você vai fazer?</h1>
+    <div class="mut" id="todayMeta">Você pode escolher qualquer treino em qualquer dia. O cronograma fica apenas como referência semanal.</div>
+    <div class="quick" id="quickWorkouts"></div>
+  </div>
+  <div class="metrics">
+    <div class="metric"><b id="mWeek">0/5</b><span>dias treinados semana</span></div>
+    <div class="metric"><b id="mAttendance">—</b><span>aderência 8 semanas</span></div>
+    <div class="metric"><b id="mSessions">0</b><span>treinos registrados</span></div>
+    <div class="metric"><b id="mVolume">0</b><span>volume total kg</span></div>
+  </div>
 
-    <div class="section">
-      <div class="row"><h2>Treino</h2><div class="spacer"></div><select class="field" id="workoutSelect" style="max-width:330px"></select></div>
-      <div class="cards" id="exerciseList"><div class="skeleton"></div></div>
+  <div class="section">
+    <div class="row"><h2>Treino</h2><div class="spacer"></div><select class="field" id="workoutSelect" style="max-width:360px"></select></div>
+    <div class="cards" id="exerciseList"></div>
+  </div>
+  <div class="section card" style="padding:14px">
+    <div class="formgrid">
+      <div><label class="label">Data do treino</label><input class="field" id="workoutDate" type="date"></div>
+      <div><label class="label">Duração estimada</label><div class="field" id="workoutDuration" style="display:flex;align-items:center;color:var(--mut)">em andamento</div></div>
+      <div class="full"><label class="label">Notas do treino</label><textarea class="field" id="workoutNotes" rows="3" placeholder="Como foi o treino?"></textarea></div>
     </div>
-    <div class="section card" style="padding:14px">
-      <label class="label">Notas do treino</label>
-      <textarea class="field" id="workoutNotes" rows="3" placeholder="Como foi o treino?"></textarea>
-      <div class="actions">
-        <button class="btn primary" id="saveWorkout">Finalizar e salvar</button>
-        <button class="btn ghost" id="clearWorkout">Limpar</button>
-      </div>
-      <div id="saveMsg" style="margin-top:10px"></div>
-    </div>
-  </section>
+    <div class="actions"><button class="btn primary" id="saveWorkout">Finalizar e salvar</button><button class="btn ghost" id="clearWorkout">Limpar séries</button></div>
+    <div id="saveMsg" style="margin-top:10px"></div>
+  </div>
+</section>
 
-  <section class="view" id="weekView">
-    <h2>Semana & presença</h2>
-    <div class="mut">Cada dia planejado vira concluído, pendente ou falta automaticamente.</div>
-    <div class="section cards" id="weekCards"></div>
-    <div class="section card" style="padding:14px">
-      <div class="row"><h3>Últimas 8 semanas</h3><div class="spacer"></div><span class="mut" id="attSummary"></span></div>
-      <div class="attgrid" id="attendanceGrid" style="margin-top:12px"></div>
-      <div class="legend">
-        <span><i class="lg" style="background:#1d3c26"></i>treino</span>
-        <span><i class="lg" style="background:#3a2022"></i>falta</span>
-        <span><i class="lg" style="background:#323820"></i>hoje</span>
-        <span><i class="lg" style="background:#121820"></i>descanso</span>
-      </div>
-    </div>
-    <div class="section card" style="padding:14px">
-      <h3>Histórico</h3><div id="sessionHistory"></div>
-    </div>
-  </section>
+<section class="view" id="weekView">
+  <h2>Semana & frequência</h2>
+  <div class="mut">A meta é por quantidade de dias treinados na semana. Você escolhe livremente qual dos 5 treinos fazer em cada dia.</div>
+  <div class="section card" style="padding:14px">
+    <div class="row"><h3>Meta semanal</h3><div class="spacer"></div><b id="weekGoalText">0/5 dias</b></div>
+    <div class="weekprogress"><i id="weekGoalBar"></i></div>
+    <div class="tiny" id="weekGoalHint" style="margin-top:7px"></div>
+  </div>
+  <div class="section cards" id="weekCards"></div>
+  <div class="section card" style="padding:14px">
+    <div class="row"><h3>Frequência por semana</h3><div class="spacer"></div><select class="field" id="freqPeriod" style="max-width:145px"><option value="8">8 semanas</option><option value="12">12 semanas</option><option value="24">24 semanas</option></select></div>
+    <div class="summarygrid" id="freqSummary"></div>
+    <div class="bars" id="frequencyBars"></div>
+  </div>
+  <div class="section card" style="padding:14px"><h3>Histórico de treinos</h3><div id="sessionHistory"></div></div>
+</section>
 
-  <section class="view" id="progressView">
-    <h2>Evolução</h2>
-    <div class="metrics">
-      <div class="metric"><b id="pSessions">0</b><span>sessões</span></div>
-      <div class="metric"><b id="pAttendance">—</b><span>presença</span></div>
-      <div class="metric"><b id="pVolume">0</b><span>kg volume</span></div>
-      <div class="metric"><b id="pExercises">0</b><span>exercícios</span></div>
-    </div>
-    <div class="section card" style="padding:14px">
-      <div class="row"><h3>Força por exercício</h3><div class="spacer"></div><select class="field" id="progressExercise" style="max-width:300px"></select></div>
-      <div class="mut" id="progressSummary" style="margin:8px 0 10px"></div>
-      <div class="chart" id="progressChart"></div>
-    </div>
-    <div class="section card" style="padding:14px">
-      <h3>Cargas recentes</h3><div id="recentLoads"></div>
-    </div>
-  </section>
+<section class="view" id="progressView">
+  <h2>Evolução</h2>
+  <div class="metrics">
+    <div class="metric"><b id="pSessions">0</b><span>sessões</span></div>
+    <div class="metric"><b id="pAttendance">—</b><span>aderência</span></div>
+    <div class="metric"><b id="pVolume">0</b><span>kg volume</span></div>
+    <div class="metric"><b id="pExercises">0</b><span>exercícios com dados</span></div>
+  </div>
 
-  <section class="view" id="checkpointView">
-    <h2>Checkpoint</h2>
-    <div class="mut">Registre medidas corporais e acompanhe junto com a evolução de carga.</div>
-    <div class="metrics">
-      <div class="metric"><b id="cpWeight">—</b><span>peso atual</span></div>
-      <div class="metric"><b id="cpWaist">—</b><span>cintura</span></div>
-      <div class="metric"><b id="cpDelta">—</b><span>Δ peso</span></div>
-      <div class="metric"><b id="cpCount">0</b><span>checkpoints</span></div>
+  <div class="section card" style="padding:14px">
+    <h3>Performance por exercício</h3>
+    <div class="chart-controls">
+      <div class="wide"><label class="label">Exercício</label><select class="field" id="progressExercise"></select></div>
+      <div><label class="label">Métrica</label><select class="field" id="strengthMetric"><option value="e1rm">e1RM</option><option value="maxload">Carga máxima</option><option value="volume">Volume</option><option value="reps">Repetições totais</option></select></div>
+      <div><label class="label">Período</label><select class="field" id="strengthPeriod"><option value="30">30 dias</option><option value="90">90 dias</option><option value="180">180 dias</option><option value="all">Tudo</option></select></div>
     </div>
-    <div class="section card" style="padding:14px">
-      <form id="cpForm" class="formgrid">
-        <div><label class="label">Data</label><input class="field" name="measured_at" type="date" required></div>
-        <div><label class="label">Peso kg</label><input class="field" name="weight_kg" type="number" step="0.1" min="0"></div>
-        <div><label class="label">Cintura cm</label><input class="field" name="waist_cm" type="number" step="0.1" min="0"></div>
-        <div><label class="label">Peito cm</label><input class="field" name="chest_cm" type="number" step="0.1" min="0"></div>
-        <div><label class="label">Braço cm</label><input class="field" name="arm_cm" type="number" step="0.1" min="0"></div>
-        <div><label class="label">Coxa cm</label><input class="field" name="thigh_cm" type="number" step="0.1" min="0"></div>
-        <div><label class="label">% gordura</label><input class="field" name="body_fat_pct" type="number" step="0.1" min="0" max="100"></div>
-        <div><label class="label">Sono horas</label><input class="field" name="sleep_hours" type="number" step="0.1" min="0" max="24"></div>
-        <div><label class="label">Energia 1–5</label><input class="field" name="energy" type="number" min="1" max="5"></div>
-        <div class="full"><label class="label">Observação</label><textarea class="field" name="notes" rows="2" placeholder="Opcional"></textarea></div>
-        <div class="full"><button class="btn primary" type="submit">Salvar checkpoint</button></div>
-      </form>
-      <div id="cpMsg" style="margin-top:10px"></div>
+    <div class="summarygrid" id="strengthSummary"></div>
+    <div class="chart" id="progressChart"></div>
+  </div>
+
+  <div class="section card" style="padding:14px">
+    <h3>Medidas corporais</h3>
+    <div class="chart-controls">
+      <div class="wide"><label class="label">Medida</label><select class="field" id="bodyMetric"><option value="weight_kg">Peso</option><option value="waist_cm">Cintura</option><option value="chest_cm">Peito</option><option value="arm_cm">Braço</option><option value="thigh_cm">Coxa</option><option value="body_fat_pct">% gordura</option></select></div>
+      <div><label class="label">Período</label><select class="field" id="bodyPeriod"><option value="30">30 dias</option><option value="90">90 dias</option><option value="180">180 dias</option><option value="365">1 ano</option><option value="all">Tudo</option></select></div>
+      <div><label class="label">Meta</label><div class="field" id="bodyGoalMini" style="display:flex;align-items:center;color:var(--mut)">—</div></div>
     </div>
-    <div class="section card" style="padding:14px">
-      <h3>Peso corporal</h3><div class="chart" id="weightChart" style="margin-top:10px"></div>
-    </div>
-    <div class="section card" style="padding:14px">
-      <h3>Últimos checkpoints</h3><div id="cpHistory"></div>
-    </div>
-  </section>
+    <div class="summarygrid" id="bodySummary"></div>
+    <div class="chart" id="bodyChart"></div>
+  </div>
+
+  <div class="section card" style="padding:14px"><h3>Cargas recentes</h3><div id="recentLoads"></div></div>
+</section>
+
+<section class="view" id="checkpointView">
+  <h2>Checkpoint & metas</h2>
+  <div class="mut">Defina o destino e acompanhe o quanto do caminho já foi percorrido com base nos checkpoints reais.</div>
+
+  <div class="section card" style="padding:14px">
+    <div class="row"><h3>Metas corporais</h3><div class="spacer"></div><span class="status" id="goalDateBadge">sem prazo</span></div>
+    <form id="goalForm" class="formgrid" style="margin-top:12px">
+      <div><label class="label">Peso meta kg</label><input class="field" name="target_weight_kg" type="number" step="0.1" min="20"></div>
+      <div><label class="label">Cintura meta cm</label><input class="field" name="target_waist_cm" type="number" step="0.1" min="30"></div>
+      <div><label class="label">Peito meta cm</label><input class="field" name="target_chest_cm" type="number" step="0.1" min="30"></div>
+      <div><label class="label">Braço meta cm</label><input class="field" name="target_arm_cm" type="number" step="0.1" min="10"></div>
+      <div><label class="label">Coxa meta cm</label><input class="field" name="target_thigh_cm" type="number" step="0.1" min="20"></div>
+      <div><label class="label">% gordura meta</label><input class="field" name="target_body_fat_pct" type="number" step="0.1" min="1" max="70"></div>
+      <div><label class="label">Prazo</label><input class="field" name="target_date" type="date"></div>
+      <div><label class="label">Treinos por semana</label><input class="field" name="weekly_sessions_target" type="number" min="1" max="7" value="5"></div>
+      <div class="full"><button class="btn primary" type="submit">Salvar metas</button></div>
+    </form>
+    <div id="goalMsg" style="margin-top:10px"></div>
+    <div class="goalgrid" id="goalProgress"></div>
+  </div>
+
+  <div class="metrics">
+    <div class="metric"><b id="cpWeight">—</b><span>peso atual</span></div>
+    <div class="metric"><b id="cpWaist">—</b><span>cintura atual</span></div>
+    <div class="metric"><b id="cpDelta">—</b><span>Δ peso</span></div>
+    <div class="metric"><b id="cpCount">0</b><span>checkpoints</span></div>
+  </div>
+
+  <div class="section card" style="padding:14px">
+    <h3>Novo checkpoint</h3>
+    <form id="cpForm" class="formgrid" style="margin-top:12px">
+      <div><label class="label">Data</label><input class="field" name="measured_at" type="date" required></div>
+      <div><label class="label">Peso kg</label><input class="field" name="weight_kg" type="number" step="0.1" min="0"></div>
+      <div><label class="label">Cintura cm</label><input class="field" name="waist_cm" type="number" step="0.1" min="0"></div>
+      <div><label class="label">Peito cm</label><input class="field" name="chest_cm" type="number" step="0.1" min="0"></div>
+      <div><label class="label">Braço cm</label><input class="field" name="arm_cm" type="number" step="0.1" min="0"></div>
+      <div><label class="label">Coxa cm</label><input class="field" name="thigh_cm" type="number" step="0.1" min="0"></div>
+      <div><label class="label">% gordura</label><input class="field" name="body_fat_pct" type="number" step="0.1" min="0" max="100"></div>
+      <div><label class="label">Sono horas</label><input class="field" name="sleep_hours" type="number" step="0.1" min="0" max="24"></div>
+      <div><label class="label">Energia 1–5</label><input class="field" name="energy" type="number" min="1" max="5"></div>
+      <div class="full"><label class="label">Observação</label><textarea class="field" name="notes" rows="2"></textarea></div>
+      <div class="full"><button class="btn primary" type="submit">Salvar checkpoint</button></div>
+    </form>
+    <div id="cpMsg" style="margin-top:10px"></div>
+  </div>
+
+  <div class="section card" style="padding:14px"><h3>Últimos checkpoints</h3><div id="cpHistory"></div></div>
+</section>
 </main>
 
 <nav class="nav">
-  <button class="on" data-nav="todayView">Hoje</button>
+  <button class="on" data-nav="todayView">Treino</button>
   <button data-nav="weekView">Semana</button>
   <button data-nav="progressView">Evolução</button>
   <button data-nav="checkpointView">Check</button>
@@ -147,12 +172,11 @@
 <div class="timer" id="restTimer">
   <div><div class="tiny">DESCANSO</div><b id="timerValue">0:00</b></div>
   <div class="mut" id="timerLabel"></div><div class="spacer"></div>
-  <button class="btn secondary" id="timerPlus">+30s</button>
-  <button class="btn ghost" id="timerSkip">Pular</button>
+  <button class="btn secondary" id="timerPlus">+30s</button><button class="btn ghost" id="timerSkip">Pular</button>
 </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4"></script>
-<script src="./app.js?v=6"></script>
+<script src="./app-v7.js?v=7"></script>
 </body>
 </html>
