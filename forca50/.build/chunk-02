@@ -1,0 +1,110 @@
+Name">Carregando...</h1>
+        <p id="todayDesc"></p>
+        <div class="heroActions"><button class="btn primary" id="startToday">Abrir treino</button><button class="btn secondary" data-go="progress">Ver evolução</button></div>
+      </div>
+      <div class="grid">
+        <div class="metric"><b id="mSessions">0</b><span>treinos feitos</span></div>
+        <div class="metric"><b id="mStreak">0</b><span>semana atual</span></div>
+        <div class="metric"><b id="mPRs">0</b><span>recordes</span></div>
+      </div>
+      <div class="section">
+        <div class="sectionHead"><div><h2>Semana</h2><p>3 academia + 2 casa</p></div></div>
+        <div class="cards" id="weekCards"></div>
+      </div>
+      <div class="section">
+        <div class="sectionHead"><div><h2>Últimos registros</h2><p>Histórico salvo neste dispositivo</p></div></div>
+        <div class="card" id="recentSessions"></div>
+      </div>
+    </section>
+
+    <section class="view" data-view="workouts">
+      <div class="sectionHead"><div><h2>Treinos</h2><p>Abra, registre e conclua.</p></div></div>
+      <div class="cards" id="workoutList"></div>
+    </section>
+
+    <section class="view" data-view="progress">
+      <div class="sectionHead"><div><h2>Evolução</h2><p>Melhores cargas e estimativa de força.</p></div></div>
+      <div class="grid">
+        <div class="metric"><b id="pVolume">0</b><span>kg movidos</span></div>
+        <div class="metric"><b id="pSessions">0</b><span>sessões</span></div>
+        <div class="metric"><b id="pExercises">0</b><span>exercícios</span></div>
+      </div>
+      <div class="card">
+        <div class="row"><h3>Exercício</h3><div class="spacer"></div><select class="field" id="progressExercise" style="max-width:260px"></select></div>
+        <p class="chartLabel" id="chartSummary">Sem registros.</p>
+        <div class="chart" id="progressChart"></div>
+      </div>
+      <div class="section"><div class="sectionHead"><div><h2>Recordes atuais</h2><p>Maior e1RM por exercício.</p></div></div><div class="card progressList" id="prList"></div></div>
+    </section>
+
+    <section class="view" data-view="checkpoints">
+      <div class="sectionHead"><div><h2>Checkpoints</h2><p>Registre corpo e recuperação 1x/semana.</p></div><button class="btn primary" id="addCheckpoint">Novo</button></div>
+      <div class="grid">
+        <div class="metric"><b id="cWeight">—</b><span>peso atual</span></div>
+        <div class="metric"><b id="cWaist">—</b><span>cintura</span></div>
+        <div class="metric"><b id="cDelta">—</b><span>Δ peso</span></div>
+      </div>
+      <div class="card"><p class="chartLabel">Peso corporal</p><div class="chart" id="weightChart"></div></div>
+      <div class="section"><div class="sectionHead"><div><h2>Histórico</h2></div></div><div class="card" id="checkpointHistory"></div></div>
+    </section>
+
+    <section class="view" data-view="data">
+      <div class="sectionHead"><div><h2>Memória & nuvem</h2><p>Local primeiro; Supabase quando conectado.</p></div></div>
+      <div class="notice">Cada treino e checkpoint é salvo primeiro neste aparelho. Ao entrar na sua conta, o histórico também é sincronizado com a nuvem sem interromper o uso offline.</div>
+      <div class="card" id="cloudCard">
+        <div class="row"><div><h3>Conta & sincronização</h3><p class="sub" id="cloudStateText" style="font-size:13px;margin:5px 0 0">Verificando sessão...</p></div><div class="spacer"></div><span class="tag" id="cloudBadge">local</span></div>
+        <form id="authForm" class="formGrid two" style="margin-top:14px">
+          <div><label class="smallLabel">E-mail</label><input class="field" id="authEmail" type="email" autocomplete="email" required placeholder="seu@email.com"></div>
+          <div><label class="smallLabel">Senha</label><input class="field" id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="••••••••"></div>
+          <div class="full row"><button class="btn primary" type="submit">Entrar</button><button class="btn secondary" type="button" id="signUpBtn">Criar conta</button></div>
+        </form>
+        <div id="signedInBox" style="display:none;margin-top:14px">
+          <div class="checkItem"><div><b id="signedInEmail">Conta conectada</b><div class="sub" id="lastSyncText">Aguardando sincronização.</div></div></div>
+          <div class="row" style="margin-top:12px"><button class="btn primary" type="button" id="syncNow">Sincronizar agora</button><button class="btn secondary" type="button" id="signOutBtn">Sair desta conta</button></div>
+        </div>
+        <div id="authMessage" aria-live="polite"></div>
+      </div>
+      <div class="section card">
+        <h3>Backup local</h3>
+        <p class="sub" style="font-size:13px;margin:7px 0 14px">O JSON continua disponível como segunda camada de segurança.</p>
+        <div class="row"><button class="btn primary" id="exportData">Exportar backup</button><label class="btn secondary" for="importFile" style="display:inline-flex;align-items:center">Importar backup</label><input id="importFile" type="file" accept="application/json" hidden></div>
+      </div>
+      <div class="section card">
+        <h3>Regras do programa</h3>
+        <div class="checklist" style="margin-top:12px">
+          <div class="checkItem">RIR padrão: <b>1–2</b></div>
+          <div class="checkItem">Bateu o topo das reps em todas as séries? <b>suba a carga</b>.</div>
+          <div class="checkItem">Treinos principais: <b>45–50 min</b>.</div>
+          <div class="checkItem">Consistência primeiro. Variedade depois.</div>
+        </div>
+      </div>
+      <div class="section card"><h3>Zona de risco</h3><p class="sub" style="font-size:13px;margin:7px 0 14px">Apaga apenas os registros. A estrutura dos treinos permanece.</p><button class="btn danger" id="resetData">Apagar histórico</button></div>
+    </section>
+  </main>
+
+  <nav class="nav" aria-label="Navegação principal">
+    <button class="active" data-nav="home"><span class="ico">⌂</span>Hoje</button>
+    <button data-nav="workouts"><span class="ico">▤</span>Treinos</button>
+    <button data-nav="progress"><span class="ico">↗</span>Evolução</button>
+    <button data-nav="checkpoints"><span class="ico">◎</span>Checkpoints</button>
+    <button data-nav="data"><span class="ico">◆</span>Dados</button>
+  </nav>
+
+  <div class="modal" id="workoutModal" role="dialog" aria-modal="true" aria-labelledby="workoutTitle">
+    <div class="sheet">
+      <div class="sheetTop"><div><div class="eyebrow" id="workoutPlace">ACADEMIA</div><h2 id="workoutTitle">Treino</h2><div class="sub" id="workoutFocus"></div></div><button class="iconBtn" id="closeWorkout" aria-label="Fechar">✕</button></div>
+      <div id="workoutExercises"></div>
+      <div class="section"><label class="smallLabel" for="workoutNotes">Notas do treino</label><textarea class="field" id="workoutNotes" rows="3" placeholder="Ex.: execução boa, ombro cansado, carga fácil..."></textarea></div>
+      <div class="row"><button class="btn primary" id="finishWorkout">Concluir e salvar</button><button class="btn secondary" id="cancelWorkout">Fechar sem salvar</button></div>
+      <div id="saveMessage" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <div class="modal" id="checkpointModal" role="dialog" aria-modal="true" aria-labelledby="checkpointTitle">
+    <div class="sheet">
+      <div class="sheetTop"><div><div class="eyebrow">CHECKPOINT</div><h2 id="checkpointTitle">Registrar evolução</h2></div><button class="iconBtn" id="closeCheckpoint" aria-label="Fechar">✕</button></div>
+      <form id="checkpointForm">
+        <div class="formGrid">
+          <div><label class="smallLabel">Data</label><input class="field" name="date" type="date" required></div>
+          <div><label class="smallLabel">Peso (kg)</label><input class="field" name="weight" inputmode="decimal" type="number" min="30" max="250" step="0.1"></div>
+          <div><label class="smallLabel">Cintura (cm)</label><input class="field" name="waist
