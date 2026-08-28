@@ -1,0 +1,11 @@
+async function perform(action,p){if(action==='save_session')return saveSessionCloud(p.session);if(action==='save_checkpoint')return saveCheckpointCloud(p.checkpoint);if(action==='save_goal')return saveGoalCloud(p.goal);throw Error('action_invalid')}
+async function queueOrSend(action,p){try{await perform(action,p);setCloud('ok','salvo na nuvem');return true}catch(e){const q=qload();q.push({id:uuid(),action,p,at:new Date().toISOString()});qsave(q);setCloud('off','salvo no aparelho');return false}}
+async function flushQueue(){const q=qload(),keep=[];for(const x of q){try{await perform(x.action,x.p)}catch{keep.push(x)}}qsave(keep);if(!keep.length&&q.length)await refresh(false)}
+async function refresh(show=true){if(show)setCloud('','sincronizando');try{S=await loadRemote();saveCache();setCloud('ok','nuvem ativa');renderAll();return true}catch(e){const c=loadJSON(userKey(CACHE_KEY),null);if(c){S=c;setCloud('off','modo offline');renderAll()}else setCloud('off','sem conexão');return false}}
+window.addEventListener('online',()=>{if(U){flushQueue();refresh(false)}});
+
+$('loginForm').onsubmit=async e=>{e.preventDefault();$('loginBtn').disabled=true;msg('authMsg','Entrando…');const{data,error}=await sb.auth.signInWithPassword({email:$('loginEmail').value.trim(),password:$('loginPassword').value});$('loginBtn').disabled=false;if(error)return msg('authMsg',error.message,'error');if(data.user)enter(data.user)};
+$('signupBtn').onclick=async()=>{const email=$('loginEmail').value.trim(),password=$('loginPassword').value;if(!email||password.length<6)return msg('authMsg','Informe e-mail e senha com pelo menos 6 caracteres.','warning');const{data,error}=await sb.auth.signUp({email,password});if(error)return msg('authMsg',error.message,'error');if(data.session&&data.user)enter(data.user);else msg('authMsg','Conta criada. Confirme o e-mail, se solicitado, e depois entre normalmente.')};
+function nav(id){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id===id));document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.nav===id));if(id==='weekView')renderWeek();if(id==='progressView')renderProgress();if(id==='checkpointView')renderCP();scrollTo({top:0,behavior:'smooth'})}
+document.querySelectorAll('[data-nav]').forEach(b=>b.onclick=()=>nav(b.dataset.nav));
+
