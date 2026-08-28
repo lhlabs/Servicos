@@ -1,0 +1,32 @@
+        <div class="instructions">${esc(ex.instructions||'')}</div>
+        <div class="last"><strong>Progressão:</strong> ${esc(progression(ex))}</div>
+        <div class="subselect"><label class="label">Exercício / substituto</label><select class="field choice">${opts}</select></div>
+        <div class="sets">${rows}</div>
+        ${ex.image_source_url?`<div class="source"><a href="${esc(ex.image_source_url)}" target="_blank" rel="noopener">${esc(ex.image_credit||'Fonte da imagem')}</a></div>`:''}
+      </div></article>`
+  }).join('')||'<div class="notice warning">Nenhum exercício configurado para este treino.</div>';
+  document.querySelectorAll('.exercise .choice').forEach(sel=>sel.onchange=()=>{
+    const card=sel.closest('.exercise'), chosen=sel.value,main=card.dataset.planned, ex=S.plan.exercises.find(x=>x.exercise_key===main), sub=S.plan.substitutes.find(x=>x.substitute_key===chosen),name=sub?.name||ex?.name||chosen;
+    card.dataset.exname=name;const l=lastSet(chosen);card.querySelectorAll('.wt').forEach(i=>{i.value=l?.set?.weight_kg||''})
+  });
+  document.querySelectorAll('.exercise .done').forEach(ch=>ch.onchange=()=>{if(ch.checked){const card=ch.closest('.exercise');startTimer(Number(card.dataset.rest)||0,card.dataset.exname)}});
+}
+function formatSec(s){s=Number(s)||0;return s>=60?(s%60?`${Math.floor(s/60)}m${s%60}s`:`${s/60} min`):`${s}s`}
+function startTimer(sec,label){if(sec<=0)return;timerEnd=Date.now()+sec*1000;$('timerLabel').textContent=label;$('restTimer').classList.add('on');clearInterval(timerTick);timerTick=setInterval(tickTimer,250);tickTimer()}
+function tickTimer(){const n=Math.max(0,Math.ceil((timerEnd-Date.now())/1000));$('timerValue').textContent=`${Math.floor(n/60)}:${String(n%60).padStart(2,'0')}`;if(n<=0){clearInterval(timerTick);navigator.vibrate?.([120,80,120]);setTimeout(()=>$('restTimer').classList.remove('on'),1800)}}
+$('timerPlus').onclick=()=>{timerEnd+=30000;tickTimer()};$('timerSkip').onclick=()=>{clearInterval(timerTick);$('restTimer').classList.remove('on')};
+$('clearWorkout').onclick=()=>{renderWorkout();$('workoutNotes').value='';$('saveMsg').innerHTML=''};
+$('saveWorkout').onclick=async()=>{
+  const code=$('workoutSelect').value,day=days().find(x=>x.code===code),sets=[];
+  document.querySelectorAll('.exercise').forEach(card=>{const planned=card.dataset.planned,choice=card.querySelector('.choice'),key=choice.value,name=choice.selectedOptions[0]?.dataset.name||card.dataset.exname||key;card.querySelectorAll('.setrow').forEach(row=>{const w=Number(row.querySelector('.wt').value)||0,r=Math.max(0,Math.floor(Number(row.querySelector('.rp').value)||0)),rir=row.querySelector('.rr').value===''?null:Number(row.querySelector('.rr').value),done=row.querySelector('.done').checked;if(w||r||done)sets.push({planned_exercise_key:planned,exercise_key:key,exercise_name:name,set_number:Number(row.dataset.set),weight_kg:w,reps:r,rir,completed:done})})});
+  if(!sets.length){$('saveMsg').innerHTML='<div class="notice warning">Registre pelo menos uma série antes de finalizar.</div>';return}
+  const session={client_ref:uuid(),workout_code:code,workout_name:day?.name||code,performed_at:iso(),duration_minutes:Math.max(1,Math.round((Date.now()-workoutStarted)/60000)),notes:$('workoutNotes').value.trim(),sets};
+  $('saveWorkout').disabled=true;$('saveMsg').innerHTML='<div class="notice">Salvando…</div>';
+  const online=await queueOrSend('save_session',{session});if(!online){S.sessions.unshift({...session,id:'local-'+session.client_ref,created_at:new Date().toISOString()});saveCache()}
+  else await refreshState(false);
+  $('saveMsg').innerHTML=`<div class="notice">${online?'Treino salvo na nuvem.':'Sem internet: treino salvo no aparelho e entrou na fila de sincronização.'}</div>`;$('saveWorkout').disabled=false;renderAll();setTimeout(()=>{$('workoutNotes').value='';renderWorkout()},500)
+};
+
+function renderWeek(){
+  const t=iso(), wk=currentWeek(), wdNames=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  $('weekCards').innerHTML=days().map(day=>{const date=wk.find(x=>x.getDay()===day.day_of_week),ds=iso(date),done=sessionsOn(ds).length>0,past=ds<t,st=done?['done','Concluído']:past?['miss','Falta']:ds===t?['today','Hoje']:['','Pendente'];return`<div class="workday" data-code="${esc(day.code)}"><div class="daydot">${wdNames[day.day_of_week]}</div><div><b>${esc(day.name)}</b><div class="mut">${fmt(ds)} • ${esc(day.focus)}</div></div><span class="status ${st[0]}">${st[1]}</span></div>`}).join('');
