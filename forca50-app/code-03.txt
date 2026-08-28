@@ -1,0 +1,37 @@
+  const ordered=[...S.sessions].sort((a,b)=>b.performed_at.localeCompare(a.performed_at)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
+  for(const s of ordered){const arr=(s.sets||[]).filter(x=>x.exercise_key===exKey&&Number(x.reps)>0);if(arr.length){const best=[...arr].sort((a,b)=>Number(b.weight_kg)-Number(a.weight_kg)||Number(b.reps)-Number(a.reps))[0];return{session:s,set:best,sets:arr}}}return null
+}
+function progression(ex){
+  const l=lastSet(ex.exercise_key);if(!l)return'Primeiro registro: escolha uma carga com RIR 1–2.';
+  const top=Math.max(...l.sets.map(x=>Number(x.weight_kg)||0));const same=l.sets.filter(x=>(Number(x.weight_kg)||0)===top);
+  const hit=same.length>=Math.min(ex.sets_target,l.sets.length)&&same.every(x=>Number(x.reps)>=ex.reps_max);
+  return `Último: ${top||'peso corporal'}${top?' kg':''} • ${hit&&top?`meta batida → tente ${(top+2.5).toFixed(1)} kg`:'repita a carga e busque mais reps'}`;
+}
+function attendanceStats(){
+  const t=iso(), start=new Date();start.setDate(start.getDate()-55);start.setHours(0,0,0,0);let planned=0,done=0;
+  for(let d=new Date(start);d<=new Date();d.setDate(d.getDate()+1)){const p=days().find(x=>x.day_of_week===d.getDay());if(!p||iso(d)>t)continue;planned++;if(sessionsOn(iso(d)).length)done++}
+  return{planned,done,pct:planned?Math.round(done/planned*100):0}
+}
+function renderHeader(){
+  const tw=todayPlan(),d=tw.day;if(!d)return;
+  $('todayEyebrow').textContent=tw.isToday?'Treino de hoje':`Hoje é descanso • próximo em ${tw.delta} dia${tw.delta>1?'s':''}`;
+  $('todayName').textContent=d.name;$('todayMeta').textContent=`${d.place} • ${d.focus} • ${exFor(d.code).length} exercícios`;
+  $('startToday').onclick=()=>{$('workoutSelect').value=d.code;renderWorkout();scrollTo({top:430,behavior:'smooth'})};
+  const wk=currentWeek(),scheduled=wk.filter(x=>days().some(d=>d.day_of_week===x.getDay())),done=scheduled.filter(x=>sessionsOn(iso(x)).length).length;
+  const at=attendanceStats();$('mWeek').textContent=`${done}/5`;$('mAttendance').textContent=at.planned?`${at.pct}%`:'—';$('mSessions').textContent=S.sessions.length;$('mVolume').textContent=Math.round(totalVolume()).toLocaleString('pt-BR')
+}
+function setupWorkoutSelect(){
+  const old=$('workoutSelect').value;$('workoutSelect').innerHTML=days().map(d=>`<option value="${esc(d.code)}">${esc(d.name)}</option>`).join('');
+  const t=todayPlan().day;$('workoutSelect').value=days().some(x=>x.code===old)?old:(t?.code||days()[0]?.code||'');$('workoutSelect').onchange=()=>{workoutStarted=Date.now();renderWorkout()}
+}
+function imgError(img){img.style.display='none';const p=img.parentElement;p.insertAdjacentHTML('afterbegin','<div style="height:120px;display:grid;place-items:center;background:#202834;color:#7f8b99;font-size:11px">Imagem de referência indisponível</div>')}
+window.imgError=imgError;
+function renderWorkout(){
+  const code=$('workoutSelect').value||todayPlan().day?.code, list=exFor(code);$('exerciseList').innerHTML=list.map(ex=>{
+    const subs=subsFor(ex.exercise_key), l=lastSet(ex.exercise_key),pref=l?.set?.weight_kg||'';
+    const opts=[`<option value="${esc(ex.exercise_key)}">${esc(ex.name)} — principal</option>`,...subs.map(s=>`<option value="${esc(s.substitute_key)}" data-name="${esc(s.name)}">${esc(s.name)}</option>`)].join('');
+    let rows='';for(let i=1;i<=ex.sets_target;i++)rows+=`<div class="setrow" data-set="${i}"><div class="setn">${i}</div><div><label class="label">kg</label><input class="field wt" type="number" min="0" step="0.5" inputmode="decimal" value="${pref?esc(pref):''}"></div><div><label class="label">reps</label><input class="field rp" type="number" min="0" max="500" inputmode="numeric" placeholder="${ex.reps_min}–${ex.reps_max}"></div><div><label class="label">RIR</label><input class="field rr" type="number" min="0" max="20" step="0.5" inputmode="decimal" placeholder="2"></div><input class="check done" type="checkbox" aria-label="série concluída"></div>`;
+    return `<article class="exercise" data-planned="${esc(ex.exercise_key)}" data-rest="${ex.rest_seconds}" data-exname="${esc(ex.name)}">
+      <img class="eximg" src="${esc(ex.image_url||'')}" alt="${esc(ex.name)}" loading="lazy" referrerpolicy="no-referrer" onerror="imgError(this)">
+      <div class="exbody">
+        <div class="exhead"><div><h3>${esc(ex.name)}</h3><div class="target">${ex.sets_target} × ${ex.reps_min}${ex.reps_min!==ex.reps_max?'–'+ex.reps_max:''} • descanso ${formatSec(ex.rest_seconds)} • RIR ${esc(ex.rir_target)}</div></div><span class="status">${esc(ex.workout_code)}</span></div>
