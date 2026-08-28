@@ -1,24 +1,44 @@
-n workouts.find(w=>w.day===d)||workouts.find(w=>w.day===1)}
-    function renderHome(){
-      const t=todayWorkout();document.getElementById('todayName').textContent=t.name;document.getElementById('todayDesc').textContent=`${t.place} • ${t.focus} • ${t.duration}`;
-      const actual=workouts.some(w=>w.day===new Date().getDay());document.getElementById('todayLabel').textContent=actual?'Treino de hoje':'Próximo treino sugerido';
-      document.getElementById('startToday').onclick=()=>openWorkout(t.id);
-      document.getElementById('mSessions').textContent=state.sessions.length;
-      const monday=new Date();const day=(monday.getDay()+6)%7;monday.setDate(monday.getDate()-day);monday.setHours(0,0,0,0);document.getElementById('mStreak').textContent=state.sessions.filter(s=>new Date(s.date+'T12:00:00')>=monday).length+'/5';
-      const prs=workouts.flatMap(w=>w.exercises).filter(e=>bestForExercise(e.id).e1rm>0).length;document.getElementById('mPRs').textContent=prs;
-      const container=document.getElementById('weekCards');container.innerHTML='';workouts.forEach(w=>{const done=state.sessions.some(s=>s.workoutId===w.id&&new Date(s.date+'T12:00:00')>=monday);const el=document.createElement('div');el.className='workoutCard '+(w.id===t.id?'active':'');el.innerHTML=`<div><div class="eyebrow">${w.short} • ${esc(w.place)}</div><div class="exName">${esc(w.name)}</div><div class="workoutMeta">${esc(w.focus)} • ${w.duration}</div></div><div class="row"><span class="tag ${w.place==='Casa'?'home':'gym'}">${done?'✓ feito':w.place}</span><button class="btn secondary" style="padding:9px 11px" type="button">Abrir</button></div>`;el.querySelector('button').onclick=()=>openWorkout(w.id);container.appendChild(el)});
-      const r=document.getElementById('recentSessions');const recent=[...state.sessions].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);r.innerHTML=recent.length?recent.map(s=>`<div class="historyItem"><div class="date">${fmtDate(s.date)}</div><div class="historyMain"><b>${esc(s.workoutName)}</b><span>${Math.round(sessionVolume(s)).toLocaleString('pt-BR')} kg de volume</span></div><span class="tag">✓</span></div>`).join(''):'<div class="empty">Seu primeiro treino aparecerá aqui.</div>';
-    }
-    function renderWorkoutList(){const c=document.getElementById('workoutList');c.innerHTML='';workouts.forEach(w=>{const count=state.sessions.filter(s=>s.workoutId===w.id).length;const el=document.createElement('div');el.className='workoutCard';el.innerHTML=`<div><div class="eyebrow">${w.short} • ${esc(w.place)}</div><div class="exName">${esc(w.name)}</div><div class="workoutMeta">${w.exercises.length} exercícios • ${w.duration} • ${count} registros</div></div><button class="btn primary" type="button">Abrir</button>`;el.querySelector('button').onclick=()=>openWorkout(w.id);c.appendChild(el)});}
-
-    function openWorkout(id){currentWorkout=workouts.find(w=>w.id===id);if(!currentWorkout)return;document.getElementById('workoutPlace').textContent=currentWorkout.place.toUpperCase();document.getElementById('workoutTitle').textContent=currentWorkout.name;document.getElementById('workoutFocus').textContent=`${currentWorkout.focus} • ${currentWorkout.duration}`;document.getElementById('workoutNotes').value='';document.getElementById('saveMessage').innerHTML='';
-      const c=document.getElementById('workoutExercises');c.innerHTML='';currentWorkout.exercises.forEach(ex=>{const sug=suggestedLoad(ex);const wrap=document.createElement('div');wrap.className='exercise';const hint=sug?`Último: ${sug.last||'peso corporal'} kg • ${sug.hitTop?`meta batida → tente ${sug.next} kg`:`repita ${sug.next||sug.last} kg e busque mais reps`}`:'Primeiro registro — encontre uma carga com RIR 1–2.';wrap.innerHTML=`<div class="exTop"><div><div class="exName">${esc(ex.name)}</div><div class="exTarget">${ex.sets} × ${ex.min}${ex.min!==ex.max?'–'+ex.max:''} • descanso ${ex.rest}</div><div class="historyHint">${esc(hint)}</div></div><span class="tag">RIR 1–2</span></div><div class="sets"></div>`;const sets=wrap.querySelector('.sets');for(let i=1;i<=ex.sets;i++){const row=document.createElement('div');row.className='setRow';row.dataset.ex=ex.id;row.innerHTML=`<div class="setNo">${i}</div><div><label class="smallLabel">kg</label><input class="field weight" type="number" step="0.5" min="0" inputmode="decimal" placeholder="${sug&&sug.next?sug.next:''}"></div><div><label class="smallLabel">reps</label><input class="field reps" type="number" step="1" min="0" max="100" inputmode="numeric" placeholder="${ex.min}-${ex.max}"></div><div><label class="smallLabel">RIR</label><input class="field rir" type="number" step="1" min="0" max="10" inputmode="numeric" placeholder="2"></div><div><label class="smallLabel">ok</label><input class="done" type="checkbox" aria-label="Série concluída"></div>`;sets.appendChild(row)}c.appendChild(wrap)});document.getElementById('workoutModal').classList.add('open');}
-    function closeWorkout(){document.getElementById('workoutModal').classList.remove('open')}
-    document.getElementById('closeWorkout').onclick=closeWorkout;document.getElementById('cancelWorkout').onclick=closeWorkout;
-    document.getElementById('finishWorkout').addEventListener('click',()=>{if(!currentWorkout)return;const rows=[...document.querySelectorAll('#workoutExercises .setRow')];const grouped={};rows.forEach(r=>{const ex=r.dataset.ex;if(!grouped[ex])grouped[ex]=[];const weight=Math.max(0,Number(r.querySelector('.weight').value)||0),reps=Math.max(0,Math.floor(Number(r.querySelector('.reps').value)||0)),rir=Math.max(0,Math.min(10,Number(r.querySelector('.rir').value)||0)),done=r.querySelector('.done').checked;if(reps>0||weight>0||done)grouped[ex].push({weight,reps,rir,done});});const exercises=currentWorkout.exercises.map(ex=>({id:ex.id,name:ex.name,sets:grouped[ex.id]||[]})).filter(e=>e.sets.length);if(!exercises.length){document.getElementById('saveMessage').innerHTML='<div class="notice warn">Registre pelo menos uma série antes de concluir.</div>';return;}const sid=Date.now();const session={id:sid,clientRef:'session-'+sid,date:localDateISO(),workoutId:currentWorkout.id,workoutName:currentWorkout.name,notes:document.getElementById('workoutNotes').value.trim(),exercises};state.sessions.push(session);save();document.getElementById('saveMessage').innerHTML='<div class="notice">Treino salvo. Histórico e recordes atualizados.</div>';setTimeout(()=>{closeWorkout();renderAll();navigate('home')},550);});
-
-    function allExercises(){const map=new Map();workouts.forEach(w=>w.exercises.forEach(e=>map.set(e.id,e)));return [...map.values()]}
-    function renderProgress(){const all=allExercises();const select=document.getElementById('progressExercise');const prev=select.value;select.innerHTML=all.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('');if(prev&&all.some(e=>e.id===prev))select.value=prev;const volume=state.sessions.reduce((a,s)=>a+sessionVolume(s),0);document.getElementById('pVolume').textContent=Math.round(volume).toLocaleString('pt-BR');document.getElementById('pSessions').textContent=state.sessions.length;document.getElementById('pExercises').textContent=all.filter(e=>allExerciseLogs(e.id).length).length;
-      const list=document.getElementById('prList');const prs=all.map(e=>({e,...bestForExercise(e.id)})).filter(x=>x.e1rm>0).sort((a,b)=>b.e1rm-a.e1rm);list.innerHTML=prs.length?prs.map(x=>`<div class="progressRow"><div><b>${esc(x.e.name)}</b><span> melhor série ${x.weight} kg × ${x.reps}</span></div><b>${x.weight} kg</b><b>${x.e1rm.toFixed(1)}</b></div>`).join(''):'<div class="empty">Conclua treinos para gerar seus recordes.</div>';renderExerciseChart();}
-    document.getElementById('progressExercise').addEventListener('change',renderExerciseChart);
-    function renderExerciseChart(){const id=document.getElementById('progressExercise').value;const logs=allExerciseLogs(id).map(l=>({date:l.date,value:Math.max(0,...l.sets.map(s=>e1rm(s.weight,s.reps)))})).filter(x=>x.value>0);const chart=documen
+t planned=0,done=0;
+  for(let d=new Date(start);d<=new Date();d.setDate(d.getDate()+1)){const p=days().find(x=>x.day_of_week===d.getDay());if(!p||iso(d)>t)continue;planned++;if(sessionsOn(iso(d)).length)done++}
+  return{planned,done,pct:planned?Math.round(done/planned*100):0}
+}
+function renderHeader(){
+  const tw=todayPlan(),d=tw.day;if(!d)return;
+  $('todayEyebrow').textContent=tw.isToday?'Treino de hoje':`Hoje é descanso • próximo em ${tw.delta} dia${tw.delta>1?'s':''}`;
+  $('todayName').textContent=d.name;$('todayMeta').textContent=`${d.place} • ${d.focus} • ${exFor(d.code).length} exercícios`;
+  $('startToday').onclick=()=>{$('workoutSelect').value=d.code;renderWorkout();scrollTo({top:430,behavior:'smooth'})};
+  const wk=currentWeek(),scheduled=wk.filter(x=>days().some(d=>d.day_of_week===x.getDay())),done=scheduled.filter(x=>sessionsOn(iso(x)).length).length;
+  const at=attendanceStats();$('mWeek').textContent=`${done}/5`;$('mAttendance').textContent=at.planned?`${at.pct}%`:'—';$('mSessions').textContent=S.sessions.length;$('mVolume').textContent=Math.round(totalVolume()).toLocaleString('pt-BR')
+}
+function setupWorkoutSelect(){
+  const old=$('workoutSelect').value;$('workoutSelect').innerHTML=days().map(d=>`<option value="${esc(d.code)}">${esc(d.name)}</option>`).join('');
+  const t=todayPlan().day;$('workoutSelect').value=days().some(x=>x.code===old)?old:(t?.code||days()[0]?.code||'');$('workoutSelect').onchange=()=>{workoutStarted=Date.now();renderWorkout()}
+}
+function imgError(img){img.style.display='none';const p=img.parentElement;p.insertAdjacentHTML('afterbegin','<div style="height:120px;display:grid;place-items:center;background:#202834;color:#7f8b99;font-size:11px">Imagem de referência indisponível</div>')}
+window.imgError=imgError;
+function renderWorkout(){
+  const code=$('workoutSelect').value||todayPlan().day?.code, list=exFor(code);$('exerciseList').innerHTML=list.map(ex=>{
+    const subs=subsFor(ex.exercise_key), l=lastSet(ex.exercise_key),pref=l?.set?.weight_kg||'';
+    const opts=[`<option value="${esc(ex.exercise_key)}">${esc(ex.name)} — principal</option>`,...subs.map(s=>`<option value="${esc(s.substitute_key)}" data-name="${esc(s.name)}">${esc(s.name)}</option>`)].join('');
+    let rows='';for(let i=1;i<=ex.sets_target;i++)rows+=`<div class="setrow" data-set="${i}"><div class="setn">${i}</div><div><label class="label">kg</label><input class="field wt" type="number" min="0" step="0.5" inputmode="decimal" value="${pref?esc(pref):''}"></div><div><label class="label">reps</label><input class="field rp" type="number" min="0" max="500" inputmode="numeric" placeholder="${ex.reps_min}–${ex.reps_max}"></div><div><label class="label">RIR</label><input class="field rr" type="number" min="0" max="20" step="0.5" inputmode="decimal" placeholder="2"></div><input class="check done" type="checkbox" aria-label="série concluída"></div>`;
+    return `<article class="exercise" data-planned="${esc(ex.exercise_key)}" data-rest="${ex.rest_seconds}" data-exname="${esc(ex.name)}">
+      <img class="eximg" src="${esc(ex.image_url||'')}" alt="${esc(ex.name)}" loading="lazy" referrerpolicy="no-referrer" onerror="imgError(this)">
+      <div class="exbody">
+        <div class="exhead"><div><h3>${esc(ex.name)}</h3><div class="target">${ex.sets_target} × ${ex.reps_min}${ex.reps_min!==ex.reps_max?'–'+ex.reps_max:''} • descanso ${formatSec(ex.rest_seconds)} • RIR ${esc(ex.rir_target)}</div></div><span class="status">${esc(ex.workout_code)}</span></div>
+        <div class="instructions">${esc(ex.instructions||'')}</div>
+        <div class="last"><strong>Progressão:</strong> ${esc(progression(ex))}</div>
+        <div class="subselect"><label class="label">Exercício / substituto</label><select class="field choice">${opts}</select></div>
+        <div class="sets">${rows}</div>
+        ${ex.image_source_url?`<div class="source"><a href="${esc(ex.image_source_url)}" target="_blank" rel="noopener">${esc(ex.image_credit||'Fonte da imagem')}</a></div>`:''}
+      </div></article>`
+  }).join('')||'<div class="notice warning">Nenhum exercício configurado para este treino.</div>';
+  document.querySelectorAll('.exercise .choice').forEach(sel=>sel.onchange=()=>{
+    const card=sel.closest('.exercise'), chosen=sel.value,main=card.dataset.planned, ex=S.plan.exercises.find(x=>x.exercise_key===main), sub=S.plan.substitutes.find(x=>x.substitute_key===chosen),name=sub?.name||ex?.name||chosen;
+    card.dataset.exname=name;const l=lastSet(chosen);card.querySelectorAll('.wt').forEach(i=>{i.value=l?.set?.weight_kg||''})
+  });
+  document.querySelectorAll('.exercise .done').forEach(ch=>ch.onchange=()=>{if(ch.checked){const card=ch.closest('.exercise');startTimer(Number(card.dataset.rest)||0,card.dataset.exname)}});
+}
+function formatSec(s){s=Number(s)||0;return s>=60?(s%60?`${Math.floor(s/60)}m${s%60}s`:`${s/60} min`):`${s}s`}
+function startTimer(sec,label){if(sec<=0)return;timerEnd=Date.now()+sec*1000;$('timerLabel').textContent=label;$('restTimer').classList.add('on');clearInterval(timerTick);timerTick=setInterval(tickTimer,250);tickTimer()}
+function tickTimer(){const n=Math.max(0,Math.ceil((timerEnd-Date.now())/1000));$('timerValue').textContent=`${Math.floor(n/60)}:${String(n%60).padStart(2,'0')}`;if(n<=0){clearInterval(timerTick);navigator.vibrate?.([120,80,120]);setTimeout(()=>$('restTimer').classList.remove('on'),1800)}}
+$('timerPlus').onclick=()=>{timerEnd+=30000;tickTimer()};$('timerSkip').onclick=()=>{clearInterval(timerTick);$('restTimer').classLi
