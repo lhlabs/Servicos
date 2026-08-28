@@ -1,0 +1,41 @@
+  const row={user_id:U.id,client_ref:cp.client_ref,measured_at:cp.measured_at,weight_kg:cp.weight_kg,waist_cm:cp.waist_cm,chest_cm:cp.chest_cm,arm_cm:cp.arm_cm,thigh_cm:cp.thigh_cm,body_fat_pct:cp.body_fat_pct,sleep_hours:cp.sleep_hours,energy:cp.energy,notes:cp.notes||null};
+  const {data:found,error:findErr}=await sb.from('forca50_checkpoints').select('id').eq('user_id',U.id).eq('client_ref',cp.client_ref).maybeSingle();if(findErr)throw findErr;
+  if(found?.id){const {error}=await sb.from('forca50_checkpoints').update(row).eq('id',found.id).eq('user_id',U.id);if(error)throw error;return found.id}
+  const {data,error}=await sb.from('forca50_checkpoints').insert(row).select('id').single();if(error)throw error;return data.id
+}
+async function performAction(action,payload){if(action==='save_session')return saveSessionCloud(payload.session);if(action==='save_checkpoint')return saveCheckpointCloud(payload.checkpoint);throw new Error('action_invalid')}
+async function refreshState(show=true){
+  if(show)setCloud('','sincronizando');
+  try{S=await loadRemote();saveCache();setCloud('ok','nuvem ativa');renderAll();return true}
+  catch(e){const c=loadJSON(userKey(CACHE_KEY),null);if(c){S=c;setCloud('off','modo offline');renderAll()}else setCloud('off','sem conexão');return false}
+}
+async function queueOrSend(action,payload){
+  try{await performAction(action,payload);setCloud('ok','salvo na nuvem');return true}
+  catch(e){const q=qload();q.push({id:uuid(),action,payload,at:new Date().toISOString()});qsave(q);setCloud('off','salvo no aparelho');return false}
+}
+async function flushQueue(){
+  let q=qload();if(!q.length||!U)return;const keep=[];for(const x of q){try{await performAction(x.action,x.payload)}catch{keep.push(x)}}qsave(keep);if(!keep.length)await refreshState(false)
+}
+window.addEventListener('online',()=>{if(U){flushQueue().catch(()=>{});refreshState(false).catch(()=>{})}});
+
+async function enterApp(user){U=user;openShell();setCloud('','carregando');await startApp()}
+$('loginForm').onsubmit=async e=>{e.preventDefault();const email=$('loginEmail').value.trim(),password=$('loginPassword').value;$('loginBtn').disabled=true;authMessage('Entrando…');const {data,error}=await sb.auth.signInWithPassword({email,password});$('loginBtn').disabled=false;if(error){authMessage(error.message,'error');return}if(data.user)await enterApp(data.user)};
+$('signupBtn').onclick=async()=>{const email=$('loginEmail').value.trim(),password=$('loginPassword').value;if(!email||password.length<6){authMessage('Informe e-mail e senha com pelo menos 6 caracteres.','warning');return}$('signupBtn').disabled=true;authMessage('Criando conta…');const {data,error}=await sb.auth.signUp({email,password});$('signupBtn').disabled=false;if(error){authMessage(error.message,'error');return}if(data.session&&data.user){await enterApp(data.user)}else authMessage('Conta criada. Confirme o e-mail caso o Supabase solicite e depois entre normalmente.')};
+
+
+function nav(id){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id===id));document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.nav===id));if(id==='weekView')renderWeek();if(id==='progressView')renderProgress();if(id==='checkpointView')renderCP();scrollTo({top:0,behavior:'smooth'})}
+document.querySelectorAll('[data-nav]').forEach(b=>b.onclick=()=>nav(b.dataset.nav));
+
+function days(){return [...(S.plan.days||[])].sort((a,b)=>a.sort_order-b.sort_order)}
+function exFor(code){return (S.plan.exercises||[]).filter(x=>x.workout_code===code).sort((a,b)=>a.sort_order-b.sort_order)}
+function subsFor(key){return (S.plan.substitutes||[]).filter(x=>x.exercise_key===key).sort((a,b)=>a.sort_order-b.sort_order)}
+function todayPlan(){
+  const dow=new Date().getDay(), exact=days().find(x=>x.day_of_week===dow);if(exact)return{day:exact,isToday:true};
+  let best=null,delta=99;for(const d of days()){let x=(d.day_of_week-dow+7)%7;if(x===0)x=7;if(x<delta){delta=x;best=d}}return{day:best,isToday:false,delta}
+}
+function sessionsOn(date){return S.sessions.filter(s=>s.performed_at===date)}
+function weekMonday(d=new Date()){const x=new Date(d);const wd=(x.getDay()+6)%7;x.setDate(x.getDate()-wd);x.setHours(0,0,0,0);return x}
+function currentWeek(){const m=weekMonday();return Array.from({length:7},(_,i)=>{const x=new Date(m);x.setDate(m.getDate()+i);return x})}
+function volumeSession(s){return(s.sets||[]).reduce((a,x)=>a+(Number(x.weight_kg)||0)*(Number(x.reps)||0),0)}
+function totalVolume(){return S.sessions.reduce((a,s)=>a+volumeSession(s),0)}
+function lastSet(exKey){
