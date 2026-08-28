@@ -1,32 +1,36 @@
-ray(s.exercises)?s.exercises:[]).map(e=>({
-              id:e.id,name:e.name||getExerciseName(e.id),sets:(Array.isArray(e.sets)?e.sets:[]).map(x=>({
-                weight:Number(x.weight??x.w)||0,reps:Number(x.reps??x.r)||0,rir:Number(x.rir)||0,done:Boolean(x.done)
-              }))
-            }))
-          });refs.add(ref);changed=true;
-        });
-        const cpRefs=new Set(state.checkpoints.map(c=>c.clientRef||String(c.id||'')));
-        (Array.isArray(legacy.checkpoints)?legacy.checkpoints:[]).forEach(c=>{
-          const ref='legacy-checkpoint-'+String(c.id||`${c.date||''}-${c.weight??''}`);
-          if(cpRefs.has(ref))return;
-          state.checkpoints.push({
-            id:c.id||Date.now()+Math.floor(Math.random()*1000),clientRef:ref,date:c.date||localDateISO(),
-            weight:c.weight??null,waist:c.waist??null,chest:c.chest??null,arm:c.arm??null,thigh:c.thigh??null,
-            sleep:c.sleep??null,energy:c.energy??null,bodyfat:c.bodyfat??null,notes:c.notes??c.note??''
-          });cpRefs.add(ref);changed=true;
-        });
-        if(changed){
-          state.sessions.sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-          state.checkpoints.sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-          ensureClientRefs();persistLocal();
-        }
-      }catch(e){console.warn('Migração do histórico anterior ignorada',e)}
-    }
-
-    function renderAll(){renderHome();renderWorkoutList();renderProgress();renderCheckpoints();}
-    migrateLegacyState();renderAll();setCloudUi('local');initCloud();
-    if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
-  })();
-  </script>
+ent=S.sessions.length;$('pAttendance').textContent=at.planned?`${at.pct}%`:'—';$('pVolume').textContent=Math.round(totalVolume()).toLocaleString('pt-BR');$('pExercises').textContent=logged.length;
+  const sel=$('progressExercise'),old=sel.value;sel.innerHTML=logged.length?logged.map(k=>`<option value="${esc(k)}">${esc(names.get(k)||k)}</option>`).join(''):'<option value="">Sem registros</option>';if(logged.includes(old))sel.value=old;sel.onchange=renderStrength;renderStrength();
+  const rows=[];for(const k of logged){const all=[];S.sessions.forEach(s=>(s.sets||[]).filter(x=>x.exercise_key===k&&Number(x.reps)>0).forEach(x=>all.push({...x,date:s.performed_at})));if(!all.length)continue;all.sort((a,b)=>b.date.localeCompare(a.date));const l=all[0],best=all.reduce((a,x)=>e1(x.weight_kg,x.reps)>e1(a.weight_kg,a.reps)?x:a,all[0]);rows.push({k,name:names.get(k),l,best})}
+  $('recentLoads').innerHTML=rows.slice(0,30).map(x=>`<div class="loadrow"><div><b>${esc(x.name)}</b><div class="mut">último ${fmt(x.l.date)}</div></div><div style="text-align:right"><b>${num(x.l.weight_kg,1)} kg</b><div class="tiny">${x.l.reps} reps</div></div><div style="text-align:right"><b>${e1(x.best.weight_kg,x.best.reps).toFixed(1)}</b><div class="tiny">melhor e1RM</div></div></div>`).join('')||'<div class="mut" style="padding:18px 0">Registre cargas para acompanhar a evolução.</div>'
+}
+function renderStrength(){const key=$('progressExercise').value,logs=key?logsFor(key):[];drawLine($('progressChart'),logs.map(x=>x.value));if(!logs.length){$('progressSummary').textContent='Sem registros.';return}const a=logs[0].value,b=logs[logs.length-1].value,d=b-a;$('progressSummary').textContent=`e1RM atual ${b.toFixed(1)} kg • evolução ${d>=0?'+':''}${d.toFixed(1)} kg • ${logs.length} treino(s)`}
+$('cpForm').onsubmit=async e=>{
+  e.preventDefault();const f=new FormData(e.currentTarget),cp={client_ref:uuid()};['measured_at','notes'].forEach(k=>cp[k]=String(f.get(k)||''));['weight_kg','waist_cm','chest_cm','arm_cm','thigh_cm','body_fat_pct','sleep_hours','energy'].forEach(k=>cp[k]=f.get(k)===''?null:Number(f.get(k)));
+  $('cpMsg').innerHTML='<div class="notice">Salvando…</div>';const online=await queueOrSend('save_checkpoint',{checkpoint:cp});if(!online){S.checkpoints.unshift({...cp,id:'local-'+cp.client_ref,created_at:new Date().toISOString()});saveCache()}else await refreshState(false);
+  $('cpMsg').innerHTML=`<div class="notice">${online?'Checkpoint salvo na nuvem.':'Checkpoint salvo no aparelho; sincronizará quando a internet voltar.'}</div>`;e.currentTarget.reset();e.currentTarget.elements.measured_at.value=iso();renderCP()
+};
+function renderCP(){
+  const c=[...S.checkpoints].sort((a,b)=>a.measured_at.localeCompare(b.measured_at)),first=c[0],last=c[c.length-1];$('cpWeight').textContent=last?.weight_kg!=null?`${num(last.weight_kg)} kg`:'—';$('cpWaist').textContent=last?.waist_cm!=null?`${num(last.waist_cm)} cm`:'—';$('cpDelta').textContent=first&&last&&first.weight_kg!=null&&last.weight_kg!=null?`${Number(last.weight_kg)-Number(first.weight_kg)>=0?'+':''}${(Number(last.weight_kg)-Number(first.weight_kg)).toFixed(1)} kg`:'—';$('cpCount').textContent=c.length;drawLine($('weightChart'),c.filter(x=>x.weight_kg!=null).map(x=>Number(x.weight_kg)));
+  $('cpHistory').innerHTML=c.length?[...c].reverse().slice(0,20).map(x=>`<div class="hist"><div class="mut">${fmt(x.measured_at)}</div><div><b>${x.weight_kg!=null?num(x.weight_kg)+' kg':'Checkpoint'}</b><div class="mut">${x.waist_cm!=null?'cintura '+num(x.waist_cm)+' cm':''}${x.body_fat_pct!=null?' • gordura '+num(x.body_fat_pct)+'%':''}${x.notes?' • '+esc(x.notes):''}</div></div><span class="status">${x.energy?`energia ${x.energy}/5`:'salvo'}</span></div>`).join(''):'<div class="mut" style="padding:18px 0">Nenhum checkpoint ainda.</div>';
+  $('cpForm').elements.measured_at.value=$('cpForm').elements.measured_at.value||iso()
+}
+async function migrateLegacy(){
+  if(localStorage.getItem(LEGACY_DONE))return;const old=loadJSON('forca50-state-v2',null);if(!old){localStorage.setItem(LEGACY_DONE,'1');return}
+  try{
+    for(const x of (old.sessions||[])){const sets=[];(x.exercises||[]).forEach(e=>(e.sets||[]).forEach((s,i)=>sets.push({planned_exercise_key:e.id,exercise_key:e.id,exercise_name:e.name,set_number:i+1,weight_kg:Number(s.w)||0,reps:Number(s.r)||0,rir:s.rir??null,completed:s.done!==false})));if(sets.length)await call('save_session',{session:{client_ref:`legacy-session-${x.id}`,workout_code:x.workoutId,workout_name:x.workoutName,performed_at:x.date,duration_minutes:null,notes:x.notes||'',sets}})}
+    for(const x of (old.checkpoints||[]))await call('save_checkpoint',{checkpoint:{client_ref:`legacy-cp-${x.id}`,measured_at:x.date,weight_kg:x.weight,waist_cm:x.waist,chest_cm:x.chest,arm_cm:x.arm,thigh_cm:x.thigh,body_fat_pct:x.bodyfat??null,sleep_hours:x.sleep,energy:x.energy,notes:x.note||''}});
+    localStorage.setItem(LEGACY_DONE,'1');await refreshState(false)
+  }catch(e){console.warn('legacy migration pending',e)}
+}
+function renderAll(){renderHeader();setupWorkoutSelect();renderWorkout();renderWeek();renderProgress();renderCP()}
+async function main(){
+  const ok=await initDevice();if(!ok)return;
+  const cached=loadJSON(CACHE_KEY,null);if(cached){S=cached;renderAll()}
+  await refreshState();await flushQueue();await migrateLegacy();
+  if('serviceWorker'in navigator){navigator.serviceWorker.register('./service-worker.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{})}
+}
+main();
+})();
+</script>
 </body>
 </html>
