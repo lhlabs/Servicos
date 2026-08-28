@@ -1,52 +1,13 @@
-const CACHE='forca50-v4';
-const ASSETS=['./manifest.webmanifest','./icon.svg'];
-
-self.addEventListener('install',event=>{
-  event.waitUntil(
-    caches.open(CACHE)
-      .then(cache=>cache.addAll(ASSETS))
-      .then(()=>self.skipWaiting())
-  );
-});
-
-self.addEventListener('activate',event=>{
-  event.waitUntil(
-    caches.keys()
-      .then(keys=>Promise.all(keys.filter(key=>key.startsWith('forca50-')&&key!==CACHE).map(key=>caches.delete(key))))
-      .then(()=>self.clients.claim())
-  );
-});
-
-self.addEventListener('fetch',event=>{
-  const req=event.request;
-  if(req.method!=='GET') return;
-
-  const url=new URL(req.url);
-  if(url.hostname.endsWith('.supabase.co')) return;
-
-  // HTML/navigations: network first so iOS/PWA always sees the newest app.
-  if(req.mode==='navigate'||req.destination==='document'){
-    event.respondWith(
-      fetch(req,{cache:'no-store'})
-        .then(res=>{
-          const copy=res.clone();
-          caches.open(CACHE).then(cache=>cache.put('./index.html',copy)).catch(()=>{});
-          return res;
-        })
-        .catch(()=>caches.match('./index.html').then(cached=>cached||Response.error()))
-    );
+const CACHE='forca50-v5';
+const STATIC=['./manifest.webmanifest','./icon.svg'];
+self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(STATIC)).catch(()=>{}))});
+self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('forca50-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
+self.addEventListener('fetch',e=>{
+  const req=e.request;if(req.method!=='GET')return;const u=new URL(req.url);
+  if(u.hostname.endsWith('.supabase.co'))return;
+  if(req.mode==='navigate'){
+    e.respondWith(fetch(req,{cache:'no-store'}).then(res=>{const copy=res.clone();caches.open(CACHE).then(c=>c.put('./index.html',copy)).catch(()=>{});return res}).catch(()=>caches.match('./index.html')));
     return;
   }
-
-  // Static assets: cache first, refresh in background when possible.
-  event.respondWith(
-    caches.match(req).then(cached=>{
-      const fresh=fetch(req).then(res=>{
-        const copy=res.clone();
-        caches.open(CACHE).then(cache=>cache.put(req,copy)).catch(()=>{});
-        return res;
-      }).catch(()=>cached);
-      return cached||fresh;
-    })
-  );
+  e.respondWith(caches.match(req).then(cached=>cached||fetch(req).then(res=>{const copy=res.clone();caches.open(CACHE).then(c=>c.put(req,copy)).catch(()=>{});return res})));
 });
