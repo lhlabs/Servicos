@@ -1,0 +1,32 @@
+)?s.exercises:[]).map(e=>({
+              id:e.id,name:e.name||getExerciseName(e.id),sets:(Array.isArray(e.sets)?e.sets:[]).map(x=>({
+                weight:Number(x.weight??x.w)||0,reps:Number(x.reps??x.r)||0,rir:Number(x.rir)||0,done:Boolean(x.done)
+              }))
+            }))
+          });refs.add(ref);changed=true;
+        });
+        const cpRefs=new Set(state.checkpoints.map(c=>c.clientRef||String(c.id||'')));
+        (Array.isArray(legacy.checkpoints)?legacy.checkpoints:[]).forEach(c=>{
+          const ref='legacy-checkpoint-'+String(c.id||`${c.date||''}-${c.weight??''}`);
+          if(cpRefs.has(ref))return;
+          state.checkpoints.push({
+            id:c.id||Date.now()+Math.floor(Math.random()*1000),clientRef:ref,date:c.date||localDateISO(),
+            weight:c.weight??null,waist:c.waist??null,chest:c.chest??null,arm:c.arm??null,thigh:c.thigh??null,
+            sleep:c.sleep??null,energy:c.energy??null,bodyfat:c.bodyfat??null,notes:c.notes??c.note??''
+          });cpRefs.add(ref);changed=true;
+        });
+        if(changed){
+          state.sessions.sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+          state.checkpoints.sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+          ensureClientRefs();persistLocal();
+        }
+      }catch(e){console.warn('Migração do histórico anterior ignorada',e)}
+    }
+
+    function renderAll(){renderHome();renderWorkoutList();renderProgress();renderCheckpoints();}
+    migrateLegacyState();renderAll();setCloudUi('local');initCloud();
+    if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
+  })();
+  </script>
+</body>
+</html>
