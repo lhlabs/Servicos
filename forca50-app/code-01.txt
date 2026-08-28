@@ -1,0 +1,51 @@
+(()=>{
+'use strict';
+const SB_URL='https://judwmajgcrvhaqlkqcci.supabase.co';
+const SB_KEY='sb_publishable_91hCYqYJpqsmQRBwBrcfXg_C86NF1LP';
+const AUTH_KEY='forca50-auth-v6', CACHE_KEY='forca50-dynamic-cache-v2', QUEUE_KEY='forca50-sync-queue-v2', LEGACY_DONE='forca50-legacy-migrated-v2';
+const sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,storageKey:AUTH_KEY}});
+let U=null, appStarted=false, S={plan:{days:[],exercises:[],substitutes:[]},sessions:[],checkpoints:[]}, workoutStarted=Date.now(), timerEnd=0,timerTick=null;
+
+const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const iso=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const fmt=d=>d?d.split('-').reverse().join('/'):'—';
+const dateAt=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)};
+const uuid=()=>crypto.randomUUID();
+const num=(v,dec=1)=>v==null?'—':Number(v).toFixed(dec);
+function loadJSON(k,fallback){try{return JSON.parse(localStorage.getItem(k)||'')||fallback}catch{return fallback}}
+function userKey(base){return `${base}-${U?.id||'guest'}`}
+function saveCache(){if(U)localStorage.setItem(userKey(CACHE_KEY),JSON.stringify(S))}
+function setCloud(mode,text){const el=$('cloud');el.className='cloud '+(mode||'');el.textContent=text}
+function qload(){return U?loadJSON(userKey(QUEUE_KEY),[]):[]} function qsave(q){if(U)localStorage.setItem(userKey(QUEUE_KEY),JSON.stringify(q))}
+function authMessage(text,kind=''){ $('authMsg').innerHTML=`<div class="notice ${kind}">${esc(text)}</div>` }
+function openShell(){ $('authGate').hidden=true;$('shell').hidden=false }
+function openAuth(){ $('shell').hidden=true;$('authGate').hidden=false }
+
+async function loadRemote(){
+  if(!U)throw new Error('not_authenticated');
+  const [daysQ,exQ,subQ,sessQ,setQ,cpQ]=await Promise.all([
+    sb.from('forca50_workout_days').select('*').eq('is_active',true).order('sort_order'),
+    sb.from('forca50_exercises').select('*').eq('is_active',true).order('workout_code').order('sort_order'),
+    sb.from('forca50_exercise_substitutes').select('*').eq('is_active',true).order('exercise_key').order('sort_order'),
+    sb.from('forca50_sessions').select('*').eq('user_id',U.id).order('performed_at',{ascending:false}).limit(500),
+    sb.from('forca50_sets').select('*').eq('user_id',U.id).order('created_at',{ascending:true}).limit(5000),
+    sb.from('forca50_checkpoints').select('*').eq('user_id',U.id).order('measured_at',{ascending:false}).limit(500)
+  ]);
+  const err=daysQ.error||exQ.error||subQ.error||sessQ.error||setQ.error||cpQ.error;if(err)throw err;
+  const by=new Map();for(const x of(setQ.data||[])){const a=by.get(x.session_id)||[];a.push(x);by.set(x.session_id,a)}
+  return{plan:{days:daysQ.data||[],exercises:exQ.data||[],substitutes:subQ.data||[]},sessions:(sessQ.data||[]).map(x=>({...x,sets:by.get(x.id)||[]})),checkpoints:cpQ.data||[]}
+}
+async function saveSessionCloud(session){
+  if(!U)throw new Error('not_authenticated');
+  const row={user_id:U.id,client_ref:session.client_ref,workout_code:session.workout_code,workout_name:session.workout_name,performed_at:session.performed_at,duration_minutes:session.duration_minutes||null,notes:session.notes||null,updated_at:new Date().toISOString()};
+  let {data:found,error:findErr}=await sb.from('forca50_sessions').select('id').eq('user_id',U.id).eq('client_ref',session.client_ref).maybeSingle();if(findErr)throw findErr;
+  let sid;
+  if(found?.id){sid=found.id;const {error}=await sb.from('forca50_sessions').update(row).eq('id',sid).eq('user_id',U.id);if(error)throw error}
+  else{const {data,error}=await sb.from('forca50_sessions').insert(row).select('id').single();if(error)throw error;sid=data.id}
+  const {error:delErr}=await sb.from('forca50_sets').delete().eq('user_id',U.id).eq('session_id',sid);if(delErr)throw delErr;
+  const rows=(session.sets||[]).map((x,i)=>({user_id:U.id,session_id:sid,planned_exercise_key:x.planned_exercise_key||x.exercise_key,exercise_key:x.exercise_key,exercise_name:x.exercise_name,set_number:x.set_number||i+1,weight_kg:Number(x.weight_kg)||0,reps:Math.max(0,Math.floor(Number(x.reps)||0)),rir:x.rir==null?null:Number(x.rir),completed:x.completed!==false}));
+  if(rows.length){const {error}=await sb.from('forca50_sets').insert(rows);if(error)throw error}
+  return sid
+}
+async function saveCheckpointCloud(cp){
+  if(!U)throw new Error('not_authenticated');
