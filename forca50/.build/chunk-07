@@ -1,4 +1,4 @@
-)?s.exercises:[]).map(e=>({
+ray(s.exercises)?s.exercises:[]).map(e=>({
               id:e.id,name:e.name||getExerciseName(e.id),sets:(Array.isArray(e.sets)?e.sets:[]).map(x=>({
                 weight:Number(x.weight??x.w)||0,reps:Number(x.reps??x.r)||0,rir:Number(x.rir)||0,done:Boolean(x.done)
               }))
