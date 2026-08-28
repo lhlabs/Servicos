@@ -1,65 +1,68 @@
-do automaticamente.':'Entre com sua conta para sincronizar entre aparelhos.');
-      const form=document.getElementById('authForm'),box=document.getElementById('signedInBox');
-      if(form)form.style.display=authUser?'none':'grid';if(box)box.style.display=authUser?'block':'none';
-      if(authUser){const em=document.getElementById('signedInEmail');if(em)em.textContent=authUser.email||'Conta conectada';const ls=document.getElementById('lastSyncText');if(ls)ls.textContent=lastSyncAt?`Última sincronização: ${new Date(lastSyncAt).toLocaleString('pt-BR')}`:'Aguardando sincronização.';}
-    }
-    function authMsg(message,type='ok'){const el=document.getElementById('authMessage');if(!el)return;el.innerHTML=message?`<div class="notice ${type==='warn'?'warn':''}" style="margin-top:12px">${esc(message)}</div>`:''}
-    async function pushLocal(){
-      if(!authUser||!cloud)return;
-      ensureClientRefs();persistLocal();
-      const uid=authUser.id;
-      const {error:pErr}=await cloud.from('forca50_profiles').upsert({user_id:uid,display_name:(authUser.email||'').split('@')[0]||null},{onConflict:'user_id'});if(pErr)throw pErr;
-      for(const s of state.sessions){
-        const payload={user_id:uid,client_ref:s.clientRef,workout_code:s.workoutId||'custom',workout_name:s.workoutName||'Treino',performed_at:s.date||localDateISO(),notes:s.notes||null};
-        const {data:row,error}=await cloud.from('forca50_sessions').upsert(payload,{onConflict:'user_id,client_ref'}).select('id').single();
-        if(error)throw error;s.cloudId=row.id;
-        const {error:delErr}=await cloud.from('forca50_sets').delete().eq('user_id',uid).eq('session_id',row.id);if(delErr)throw delErr;
-        const rows=[];(s.exercises||[]).forEach(ex=>(ex.sets||[]).forEach((st,i)=>rows.push({user_id:uid,session_id:row.id,exercise_key:ex.id,exercise_name:ex.name||getExerciseName(ex.id),set_number:i+1,weight_kg:Number(st.weight)||0,reps:Math.max(0,Math.floor(Number(st.reps)||0)),rir:st.rir==null?null:Number(st.rir),completed:Boolean(st.done)})));
-        if(rows.length){const {error:setErr}=await cloud.from('forca50_sets').insert(rows);if(setErr)throw setErr}
-      }
-      for(const c of state.checkpoints){
-        const payload={user_id:uid,client_ref:c.clientRef,measured_at:c.date||localDateISO(),weight_kg:c.weight??null,waist_cm:c.waist??null,chest_cm:c.chest??null,arm_cm:c.arm??null,thigh_cm:c.thigh??null,body_fat_pct:c.bodyfat??null,sleep_quality:c.sleep??null,energy:c.energy??null,notes:c.notes||null};
-        const {error}=await cloud.from('forca50_checkpoints').upsert(payload,{onConflict:'user_id,client_ref'});if(error)throw error;
-      }
-      persistLocal();
-    }
-    async function pullCloud(){
-      if(!authUser||!cloud)return;
-      const uid=authUser.id;
-      const {data:ss,error:sErr}=await cloud.from('forca50_sessions').select('*').eq('user_id',uid).order('performed_at',{ascending:true});if(sErr)throw sErr;
-      const ids=(ss||[]).map(x=>x.id);let setRows=[];
-      if(ids.length){const {data,error}=await cloud.from('forca50_sets').select('*').eq('user_id',uid).in('session_id',ids).order('set_number',{ascending:true});if(error)throw error;setRows=data||[]}
-      const bySession=new Map();setRows.forEach(r=>{if(!bySession.has(r.session_id))bySession.set(r.session_id,[]);bySession.get(r.session_id).push(r)});
-      const remoteSessions=(ss||[]).map(r=>{
-        const grouped=new Map();(bySession.get(r.id)||[]).forEach(st=>{if(!grouped.has(st.exercise_key))grouped.set(st.exercise_key,{id:st.exercise_key,name:st.exercise_name,sets:[]});grouped.get(st.exercise_key).sets.push({weight:Number(st.weight_kg)||0,reps:Number(st.reps)||0,rir:st.rir==null?0:Number(st.rir),done:Boolean(st.completed)})});
-        return{id:r.client_ref||('cloud-'+r.id),clientRef:r.client_ref||('cloud-'+r.id),cloudId:r.id,date:r.performed_at,workoutId:r.workout_code,workoutName:r.workout_name,notes:r.notes||'',exercises:[...grouped.values()]};
-      });
-      const {data:cp,error:cErr}=await cloud.from('forca50_checkpoints').select('*').eq('user_id',uid).order('measured_at',{ascending:true});if(cErr)throw cErr;
-      const remoteCps=(cp||[]).map(r=>({id:r.client_ref||('cloud-'+r.id),clientRef:r.client_ref||('cloud-'+r.id),cloudId:r.id,date:r.measured_at,weight:r.weight_kg==null?null:Number(r.weight_kg),waist:r.waist_cm==null?null:Number(r.waist_cm),chest:r.chest_cm==null?null:Number(r.chest_cm),arm:r.arm_cm==null?null:Number(r.arm_cm),thigh:r.thigh_cm==null?null:Number(r.thigh_cm),bodyfat:r.body_fat_pct==null?null:Number(r.body_fat_pct),sleep:r.sleep_quality==null?null:Number(r.sleep_quality),energy:r.energy==null?null:Number(r.energy),notes:r.notes||''}));
-      const sm=new Map(state.sessions.map(s=>[s.clientRef||String(s.id),s]));remoteSessions.forEach(s=>sm.set(s.clientRef,s));state.sessions=[...sm.values()].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-      const cm=new Map(state.checkpoints.map(c=>[c.clientRef||String(c.id),c]));remoteCps.forEach(c=>cm.set(c.clientRef,c));state.checkpoints=[...cm.values()].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-      persistLocal();renderAll();
-    }
-    async function syncAll(manual=false){
-      if(syncBusy||!authUser||!cloud)return;if(!navigator.onLine){setCloudUi('offline','Sem internet. O app continua salvando localmente e sincroniza quando a conexão voltar.');return}
-      syncBusy=true;setCloudUi('sincronizando','Sincronizando histórico com o Supabase...');
-      try{await pushLocal();await pullCloud();lastSyncAt=Date.now();setCloudUi('sincronizado');if(manual)authMsg('Sincronização concluída.')}
-      catch(err){console.error(err);setCloudUi('pendente','Não foi possível concluir a sincronização agora. Seus dados continuam salvos neste aparelho.');if(manual)authMsg('Falha na sincronização. Tente novamente com internet ativa.','warn')}
-      finally{syncBusy=false}
-    }
-    async function setAuthUser(user){authUser=user||null;authMsg('');setCloudUi(authUser?'conectado':'local');if(authUser)await syncAll(false)}
-    async function initCloud(){
-      if(!cloud){setCloudUi('local','Nuvem indisponível; memória local segue ativa.');return}
-      const {data:{session}}=await cloud.auth.getSession();await setAuthUser(session?.user||null);
-      cloud.auth.onAuthStateChange((_event,session)=>{authUser=session?.user||null;setCloudUi(authUser?'conectado':'local');if(authUser)scheduleSync()});
-    }
-    function allExerciseLogs(id){return state.sessions.flatMap(s=>(s.exercises||[]).filter(e=>e.id===id).map(e=>({date:s.date,sets:e.sets||[]}))).sort((a,b)=>a.date.localeCompare(b.date))}
-    function bestForExercise(id){let best=0,bw=0,br=0;allExerciseLogs(id).forEach(l=>l.sets.forEach(s=>{const v=e1rm(s.weight,s.reps);if(v>best){best=v;bw=Number(s.weight)||0;br=Number(s.reps)||0}}));return {e1rm:best,weight:bw,reps:br}}
-    function latestForExercise(id){const logs=allExerciseLogs(id);return logs.length?logs[logs.length-1]:null}
-    function suggestedLoad(ex){const last=latestForExercise(ex.id);if(!last)return null;const valid=last.sets.filter(s=>Number(s.reps)>0);if(!valid.length)return null;const same=valid.map(s=>Number(s.weight)||0);const base=Math.max(...same);const hitTop=valid.length>=ex.sets && valid.slice(0,ex.sets).every(s=>Number(s.reps)>=ex.max);return {last:base,hitTop,next:hitTop&&ex.inc?base+ex.inc:base};}
+otstrap(deviceId,deviceSecret,claim=''){
+  const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'bootstrap',device_id:deviceId,device_secret:deviceSecret,claim}),cache:'no-store'});
+  const j=await r.json().catch(()=>({ok:false,error:'response_invalid'}));if(!r.ok||!j.ok)throw new Error(j.error||'activation_failed');return j
+}
+async function initDevice(){
+  $('activation').hidden=false;
+  let d=loadJSON(DEVICE_KEY,null), claim=new URLSearchParams(location.search).get('claim')||'';
+  if(d?.deviceId&&d?.secret){
+    try{await bootstrap(d.deviceId,d.secret);D=d;$('activation').hidden=true;$('shell').hidden=false;return true}catch(e){if(String(e.message)!=='device_denied'){D=d;$('activation').hidden=true;$('shell').hidden=false;return true}}
+  }
+  if(!claim){
+    $('activationTitle').textContent='Este aparelho precisa ser ativado';
+    $('activationText').textContent='Abra o link de ativação do Força 50 neste navegador. Não há login ou senha.';
+    $('activationMsg').innerHTML='<div class="notice warning">A ativação é feita uma única vez e fica salva neste navegador.</div>';
+    return false
+  }
+  try{
+    const nd={deviceId:uuid(),secret:secret()};await bootstrap(nd.deviceId,nd.secret,claim);localStorage.setItem(DEVICE_KEY,JSON.stringify(nd));D=nd;
+    const u=new URL(location.href);u.searchParams.delete('claim');history.replaceState({},'',u.pathname+(u.searchParams.toString()?'?'+u.searchParams:''));
+    $('activation').hidden=true;$('shell').hidden=false;return true
+  }catch(e){
+    $('activationTitle').textContent='Não foi possível ativar';
+    $('activationText').textContent='O link de ativação pode ter expirado ou já ter sido usado.';
+    $('activationMsg').innerHTML=`<div class="notice error">Código: ${esc(e.message)}</div>`;return false
+  }
+}
+async function refreshState(show=true){
+  if(show)setCloud('','sincronizando');
+  try{const j=await call('state');S={plan:j.plan,sessions:j.sessions||[],checkpoints:j.checkpoints||[]};saveCache();setCloud('ok','banco online');renderAll();return true}
+  catch(e){const c=loadJSON(CACHE_KEY,null);if(c){S=c;setCloud('off','modo offline');renderAll()}else setCloud('off','sem conexão');return false}
+}
+async function queueOrSend(action,payload){
+  try{await call(action,payload);setCloud('ok','salvo na nuvem');return true}
+  catch(e){const q=qload();q.push({id:uuid(),action,payload,at:new Date().toISOString()});qsave(q);setCloud('off','salvo no aparelho');return false}
+}
+async function flushQueue(){
+  let q=qload();if(!q.length)return;
+  const keep=[];for(const x of q){try{await call(x.action,x.payload)}catch{keep.push(x)}}qsave(keep);if(keep.length===0)await refreshState(false)
+}
+window.addEventListener('online',()=>{flushQueue().catch(()=>{});refreshState(false).catch(()=>{})});
 
-    function navigate(view){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.dataset.view===view));document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.nav===view));window.scrollTo({top:0,behavior:'smooth'}); if(view==='progress')renderProgress(); if(view==='checkpoints')renderCheckpoints();}
-    document.querySelectorAll('[data-nav]').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.nav)));
-    document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.go)));
+function nav(id){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id===id));document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.nav===id));if(id==='weekView')renderWeek();if(id==='progressView')renderProgress();if(id==='checkpointView')renderCP();scrollTo({top:0,behavior:'smooth'})}
+document.querySelectorAll('[data-nav]').forEach(b=>b.onclick=()=>nav(b.dataset.nav));
 
-    function todayWorkout(){const d=new Date().getDay();retur
+function days(){return [...(S.plan.days||[])].sort((a,b)=>a.sort_order-b.sort_order)}
+function exFor(code){return (S.plan.exercises||[]).filter(x=>x.workout_code===code).sort((a,b)=>a.sort_order-b.sort_order)}
+function subsFor(key){return (S.plan.substitutes||[]).filter(x=>x.exercise_key===key).sort((a,b)=>a.sort_order-b.sort_order)}
+function todayPlan(){
+  const dow=new Date().getDay(), exact=days().find(x=>x.day_of_week===dow);if(exact)return{day:exact,isToday:true};
+  let best=null,delta=99;for(const d of days()){let x=(d.day_of_week-dow+7)%7;if(x===0)x=7;if(x<delta){delta=x;best=d}}return{day:best,isToday:false,delta}
+}
+function sessionsOn(date){return S.sessions.filter(s=>s.performed_at===date)}
+function weekMonday(d=new Date()){const x=new Date(d);const wd=(x.getDay()+6)%7;x.setDate(x.getDate()-wd);x.setHours(0,0,0,0);return x}
+function currentWeek(){const m=weekMonday();return Array.from({length:7},(_,i)=>{const x=new Date(m);x.setDate(m.getDate()+i);return x})}
+function volumeSession(s){return(s.sets||[]).reduce((a,x)=>a+(Number(x.weight_kg)||0)*(Number(x.reps)||0),0)}
+function totalVolume(){return S.sessions.reduce((a,s)=>a+volumeSession(s),0)}
+function lastSet(exKey){
+  const ordered=[...S.sessions].sort((a,b)=>b.performed_at.localeCompare(a.performed_at)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
+  for(const s of ordered){const arr=(s.sets||[]).filter(x=>x.exercise_key===exKey&&Number(x.reps)>0);if(arr.length){const best=[...arr].sort((a,b)=>Number(b.weight_kg)-Number(a.weight_kg)||Number(b.reps)-Number(a.reps))[0];return{session:s,set:best,sets:arr}}}return null
+}
+function progression(ex){
+  const l=lastSet(ex.exercise_key);if(!l)return'Primeiro registro: escolha uma carga com RIR 1–2.';
+  const top=Math.max(...l.sets.map(x=>Number(x.weight_kg)||0));const same=l.sets.filter(x=>(Number(x.weight_kg)||0)===top);
+  const hit=same.length>=Math.min(ex.sets_target,l.sets.length)&&same.every(x=>Number(x.reps)>=ex.reps_max);
+  return `Último: ${top||'peso corporal'}${top?' kg':''} • ${hit&&top?`meta batida → tente ${(top+2.5).toFixed(1)} kg`:'repita a carga e busque mais reps'}`;
+}
+function attendanceStats(){
+  const t=iso(), start=new Date();start.setDate(start.getDate()-55);start.setHours(0,0,0,0);le
