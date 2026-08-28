@@ -1,0 +1,32 @@
+name: Montar Forca 50
+
+on:
+  push:
+    paths:
+      - 'forca50/.build/READY'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Montar index
+        run: cat forca50/.build/chunk-* > forca50/index.html
+      - name: Publicar codigo montado
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add forca50/index.html
+          if git diff --cached --quiet; then
+            echo "Sem alteracoes"
+          else
+            git commit -m "feat(forca50): enable Supabase cloud sync"
+            git push
+          fi
