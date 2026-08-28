@@ -1,83 +1,87 @@
-" inputmode="decimal" type="number" min="40" max="200" step="0.1"></div>
-          <div><label class="smallLabel">Peito (cm)</label><input class="field" name="chest" type="number" min="40" max="200" step="0.1"></div>
-          <div><label class="smallLabel">Braço (cm)</label><input class="field" name="arm" type="number" min="15" max="80" step="0.1"></div>
-          <div><label class="smallLabel">Coxa (cm)</label><input class="field" name="thigh" type="number" min="20" max="100" step="0.1"></div>
-          <div><label class="smallLabel">Sono (1–5)</label><select class="field" name="sleep"><option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
-          <div><label class="smallLabel">Energia (1–5)</label><select class="field" name="energy"><option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
-          <div><label class="smallLabel">BF estimado (%)</label><input class="field" name="bodyfat" type="number" min="3" max="60" step="0.1"></div>
-          <div class="full"><label class="smallLabel">Observações</label><textarea class="field" name="notes" rows="3" placeholder="Aparência, recuperação, alimentação, desempenho..."></textarea></div>
-        </div>
-        <div class="row" style="margin-top:16px"><button class="btn primary" type="submit">Salvar checkpoint</button><button class="btn secondary" type="button" id="cancelCheckpoint">Cancelar</button></div>
-      </form>
+>
+      <div class="metric"><b id="pVolume">0</b><span>kg volume</span></div>
+      <div class="metric"><b id="pExercises">0</b><span>exercícios</span></div>
     </div>
-  </div>
+    <div class="section card" style="padding:14px">
+      <div class="row"><h3>Força por exercício</h3><div class="spacer"></div><select class="field" id="progressExercise" style="max-width:300px"></select></div>
+      <div class="mut" id="progressSummary" style="margin:8px 0 10px"></div>
+      <div class="chart" id="progressChart"></div>
+    </div>
+    <div class="section card" style="padding:14px">
+      <h3>Cargas recentes</h3><div id="recentLoads"></div>
+    </div>
+  </section>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.min.js"></script>
-  <script>
-  (() => {
-    const STORAGE_KEY='forca50-v1';
-    const SUPABASE_URL='https://judwmajgcrvhaqlkqcci.supabase.co';
-    const SUPABASE_PUBLISHABLE_KEY='sb_publishable_91hCYqYJpqsmQRBwBrcfXg_C86NF1LP';
-    const cloud=window.supabase?.createClient
-      ? window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{storageKey:'forca50-auth-v1',persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}})
-      : null;
-    let authUser=null,syncTimer=null,syncBusy=false,lastSyncAt=null;
-    const workouts=[
-      {id:'upper-forca',day:1,short:'SEG',name:'Upper — Força',place:'Academia',focus:'Peito • costas • ombros',duration:'45–50 min',exercises:[
-        {id:'supino-reto',name:'Supino reto com barra',sets:4,min:4,max:6,rest:'2–3 min',inc:2.5},
-        {id:'barra-fixa-pronada',name:'Barra fixa / puxada alta',sets:3,min:5,max:8,rest:'2 min',inc:2.5},
-        {id:'remada-baixa',name:'Remada baixa / cavalinho',sets:3,min:6,max:8,rest:'2 min',inc:2.5},
-        {id:'desenvolvimento',name:'Desenvolvimento militar',sets:3,min:6,max:8,rest:'90–120 s',inc:2},
-        {id:'elevacao-lateral',name:'Elevação lateral',sets:3,min:12,max:15,rest:'60 s',inc:1},
-        {id:'rosca',name:'Rosca bíceps',sets:2,min:8,max:12,rest:'60 s',inc:1},
-        {id:'triceps-corda',name:'Tríceps corda',sets:2,min:8,max:12,rest:'60 s',inc:2}
-      ]},
-      {id:'casa-pernas',day:2,short:'TER',name:'Pernas + Kettlebell',place:'Casa',focus:'Quadríceps • posterior • potência',duration:'40–50 min',exercises:[
-        {id:'goblet',name:'Agachamento goblet',sets:4,min:8,max:12,rest:'60–90 s',inc:2},
-        {id:'bulgaro',name:'Agachamento búlgaro',sets:3,min:8,max:12,rest:'90–120 s',inc:2},
-        {id:'rdl-kb',name:'Stiff / RDL com kettlebell',sets:3,min:8,max:12,rest:'60–90 s',inc:2},
-        {id:'swing',name:'Kettlebell swing',sets:5,min:15,max:15,rest:'60 s',inc:2},
-        {id:'joelho-barra',name:'Elevação de joelhos na barra',sets:3,min:10,max:15,rest:'60 s',inc:0}
-      ]},
-      {id:'lower-forca',day:4,short:'QUI',name:'Lower — Força',place:'Academia',focus:'Pernas • posterior • força',duration:'45–50 min',exercises:[
-        {id:'agachamento-livre',name:'Agachamento livre',sets:4,min:4,max:6,rest:'2–3 min',inc:2.5},
-        {id:'stiff',name:'Levantamento terra romeno / stiff',sets:3,min:6,max:8,rest:'2 min',inc:2.5},
-        {id:'leg-press',name:'Leg press',sets:3,min:8,max:10,rest:'90–120 s',inc:5},
-        {id:'mesa-flexora',name:'Mesa flexora',sets:3,min:8,max:12,rest:'90 s',inc:2},
-        {id:'panturrilha',name:'Panturrilha em pé / máquina',sets:3,min:10,max:15,rest:'60–90 s',inc:2}
-      ]},
-      {id:'casa-upper',day:5,short:'SEX',name:'Calistenia Upper',place:'Casa',focus:'Costas • peito • ombros',duration:'40–45 min',exercises:[
-        {id:'barra-fixa-casa',name:'Barra fixa pronada',sets:4,min:4,max:8,rest:'90–120 s',inc:2.5},
-        {id:'flexao-elevada',name:'Flexão com pés elevados',sets:4,min:8,max:15,rest:'60–90 s',inc:2},
-        {id:'remada-kb',name:'Remada unilateral com kettlebell',sets:3,min:8,max:12,rest:'60–90 s',inc:2},
-        {id:'press-kb',name:'Desenvolvimento unilateral com kettlebell',sets:3,min:6,max:10,rest:'60–90 s',inc:2},
-        {id:'chinup',name:'Chin-up / barra supinada',sets:2,min:6,max:10,rest:'90 s',inc:2.5},
-        {id:'core',name:'Prancha / hanging leg raise',sets:3,min:10,max:15,rest:'60 s',inc:0}
-      ]},
-      {id:'full-estetica',day:0,short:'DOM',name:'Full Body — Estética',place:'Academia',focus:'Volume • proporção • hipertrofia',duration:'45–50 min',exercises:[
-        {id:'supino-inclinado',name:'Supino inclinado com halteres',sets:3,min:6,max:10,rest:'90–120 s',inc:2},
-        {id:'remada-peito',name:'Remada com apoio no peito',sets:3,min:6,max:10,rest:'90–120 s',inc:2},
-        {id:'hack',name:'Hack squat',sets:3,min:8,max:12,rest:'90–120 s',inc:5},
-        {id:'puxada-alta',name:'Puxada alta aberta / neutra',sets:3,min:8,max:12,rest:'90 s',inc:2},
-        {id:'elevacao-lateral2',name:'Elevação lateral',sets:3,min:12,max:20,rest:'60 s',inc:1},
-        {id:'rosca2',name:'Rosca bíceps',sets:3,min:8,max:12,rest:'60 s',inc:1},
-        {id:'triceps2',name:'Tríceps',sets:3,min:8,max:12,rest:'60 s',inc:1}
-      ]}
-    ];
+  <section class="view" id="checkpointView">
+    <h2>Checkpoint</h2>
+    <div class="mut">Registre medidas corporais e acompanhe junto com a evolução de carga.</div>
+    <div class="metrics">
+      <div class="metric"><b id="cpWeight">—</b><span>peso atual</span></div>
+      <div class="metric"><b id="cpWaist">—</b><span>cintura</span></div>
+      <div class="metric"><b id="cpDelta">—</b><span>Δ peso</span></div>
+      <div class="metric"><b id="cpCount">0</b><span>checkpoints</span></div>
+    </div>
+    <div class="section card" style="padding:14px">
+      <form id="cpForm" class="formgrid">
+        <div><label class="label">Data</label><input class="field" name="measured_at" type="date" required></div>
+        <div><label class="label">Peso kg</label><input class="field" name="weight_kg" type="number" step="0.1" min="0"></div>
+        <div><label class="label">Cintura cm</label><input class="field" name="waist_cm" type="number" step="0.1" min="0"></div>
+        <div><label class="label">Peito cm</label><input class="field" name="chest_cm" type="number" step="0.1" min="0"></div>
+        <div><label class="label">Braço cm</label><input class="field" name="arm_cm" type="number" step="0.1" min="0"></div>
+        <div><label class="label">Coxa cm</label><input class="field" name="thigh_cm" type="number" step="0.1" min="0"></div>
+        <div><label class="label">% gordura</label><input class="field" name="body_fat_pct" type="number" step="0.1" min="0" max="100"></div>
+        <div><label class="label">Sono horas</label><input class="field" name="sleep_hours" type="number" step="0.1" min="0" max="24"></div>
+        <div><label class="label">Energia 1–5</label><input class="field" name="energy" type="number" min="1" max="5"></div>
+        <div class="full"><label class="label">Observação</label><textarea class="field" name="notes" rows="2" placeholder="Opcional"></textarea></div>
+        <div class="full"><button class="btn primary" type="submit">Salvar checkpoint</button></div>
+      </form>
+      <div id="cpMsg" style="margin-top:10px"></div>
+    </div>
+    <div class="section card" style="padding:14px">
+      <h3>Peso corporal</h3><div class="chart" id="weightChart" style="margin-top:10px"></div>
+    </div>
+    <div class="section card" style="padding:14px">
+      <h3>Últimos checkpoints</h3><div id="cpHistory"></div>
+    </div>
+  </section>
+</main>
 
-    let state=load(); let currentWorkout=null;
-    function load(){try{const x=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');return {sessions:Array.isArray(x.sessions)?x.sessions:[],checkpoints:Array.isArray(x.checkpoints)?x.checkpoints:[]}}catch(e){return {sessions:[],checkpoints:[]}}}
-    function persistLocal(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));}
-    function ensureClientRefs(){state.sessions.forEach(s=>{if(!s.clientRef)s.clientRef='session-'+String(s.id||crypto.randomUUID())});state.checkpoints.forEach(c=>{if(!c.clientRef)c.clientRef='checkpoint-'+String(c.id||crypto.randomUUID())});}
-    function save(){ensureClientRefs();persistLocal();scheduleSync();}
-    function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
-    function localDateISO(d=new Date()){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${day}`}
-    function fmtDate(v){if(!v)return '—'; const [y,m,d]=v.slice(0,10).split('-');return `${d}/${m}/${y}`}
-    function getExerciseName(id){for(const w of workouts){const e=w.exercises.find(x=>x.id===id);if(e)return e.name}return id}
-    function e1rm(weight,reps){weight=Number(weight)||0;reps=Number(reps)||0;return weight>0&&reps>0?weight*(1+reps/30):0}
-    function sessionVolume(s){return (s.exercises||[]).reduce((a,e)=>a+(e.sets||[]).reduce((b,x)=>b+((Number(x.weight)||0)*(Number(x.reps)||0)),0),0)}
-    function scheduleSync(){if(!authUser||!cloud)return;clearTimeout(syncTimer);syncTimer=setTimeout(()=>syncAll(false),900)}
-    function setCloudUi(mode,message=''){
-      const badge=document.getElementById('cloudBadge'),status=document.getElementById('memoryStatus'),txt=document.getElementById('cloudStateText');
-      if(badge)badge.textContent=mode;if(status)status.textContent=authUser?(navigator.onLine?'Nuvem ativa':'Offline • memória local'):'Memória local ativa';
-      if(txt)txt.textContent=message||(authUser?'Conta conectada. O histórico local é sincroniza
+<nav class="nav">
+  <button class="on" data-nav="todayView">Hoje</button>
+  <button data-nav="weekView">Semana</button>
+  <button data-nav="progressView">Evolução</button>
+  <button data-nav="checkpointView">Check</button>
+</nav>
+
+<div class="timer" id="restTimer">
+  <div><div class="tiny">DESCANSO</div><b id="timerValue">0:00</b></div>
+  <div class="mut" id="timerLabel"></div><div class="spacer"></div>
+  <button class="btn secondary" id="timerPlus">+30s</button>
+  <button class="btn ghost" id="timerSkip">Pular</button>
+</div>
+</div>
+
+<script>
+(()=>{
+'use strict';
+const API='https://judwmajgcrvhaqlkqcci.supabase.co/functions/v1/forca50-api';
+const DEVICE_KEY='forca50-device-v1', CACHE_KEY='forca50-dynamic-cache-v1', QUEUE_KEY='forca50-sync-queue-v1', LEGACY_DONE='forca50-legacy-migrated-v1';
+let D=null, S={plan:{days:[],exercises:[],substitutes:[]},sessions:[],checkpoints:[]}, workoutStarted=Date.now(), timerEnd=0,timerTick=null;
+
+const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const iso=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const fmt=d=>d?d.split('-').reverse().join('/'):'—';
+const dateAt=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)};
+const uuid=()=>crypto.randomUUID();
+const num=(v,dec=1)=>v==null?'—':Number(v).toFixed(dec);
+function secret(){let a=new Uint8Array(36);crypto.getRandomValues(a);return btoa(String.fromCharCode(...a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function loadJSON(k,fallback){try{return JSON.parse(localStorage.getItem(k)||'')||fallback}catch{return fallback}}
+function saveCache(){localStorage.setItem(CACHE_KEY,JSON.stringify(S))}
+function setCloud(mode,text){const el=$('cloud');el.className='cloud '+(mode||'');el.textContent=text}
+function qload(){return loadJSON(QUEUE_KEY,[])} function qsave(q){localStorage.setItem(QUEUE_KEY,JSON.stringify(q))}
+async function call(action,payload={}){
+  if(!D) throw new Error('device_missing');
+  const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json','x-device-id':D.deviceId,'x-device-secret':D.secret},body:JSON.stringify({action,...payload}),cache:'no-store'});
+  const j=await r.json().catch(()=>({ok:false,error:'response_invalid'})); if(!r.ok||!j.ok)throw new Error(j.error||`http_${r.status}`);return j
+}
+async function bo
