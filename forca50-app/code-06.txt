@@ -1,0 +1,37 @@
+function renderStrength(){const key=$('progressExercise').value,logs=key?logsFor(key):[];drawLine($('progressChart'),logs.map(x=>x.value));if(!logs.length){$('progressSummary').textContent='Sem registros.';return}const a=logs[0].value,b=logs[logs.length-1].value,d=b-a;$('progressSummary').textContent=`e1RM atual ${b.toFixed(1)} kg • evolução ${d>=0?'+':''}${d.toFixed(1)} kg • ${logs.length} treino(s)`}
+$('cpForm').onsubmit=async e=>{
+  e.preventDefault();const f=new FormData(e.currentTarget),cp={client_ref:uuid()};['measured_at','notes'].forEach(k=>cp[k]=String(f.get(k)||''));['weight_kg','waist_cm','chest_cm','arm_cm','thigh_cm','body_fat_pct','sleep_hours','energy'].forEach(k=>cp[k]=f.get(k)===''?null:Number(f.get(k)));
+  $('cpMsg').innerHTML='<div class="notice">Salvando…</div>';const online=await queueOrSend('save_checkpoint',{checkpoint:cp});if(!online){S.checkpoints.unshift({...cp,id:'local-'+cp.client_ref,created_at:new Date().toISOString()});saveCache()}else await refreshState(false);
+  $('cpMsg').innerHTML=`<div class="notice">${online?'Checkpoint salvo na nuvem.':'Checkpoint salvo no aparelho; sincronizará quando a internet voltar.'}</div>`;e.currentTarget.reset();e.currentTarget.elements.measured_at.value=iso();renderCP()
+};
+function renderCP(){
+  const c=[...S.checkpoints].sort((a,b)=>a.measured_at.localeCompare(b.measured_at)),first=c[0],last=c[c.length-1];$('cpWeight').textContent=last?.weight_kg!=null?`${num(last.weight_kg)} kg`:'—';$('cpWaist').textContent=last?.waist_cm!=null?`${num(last.waist_cm)} cm`:'—';$('cpDelta').textContent=first&&last&&first.weight_kg!=null&&last.weight_kg!=null?`${Number(last.weight_kg)-Number(first.weight_kg)>=0?'+':''}${(Number(last.weight_kg)-Number(first.weight_kg)).toFixed(1)} kg`:'—';$('cpCount').textContent=c.length;drawLine($('weightChart'),c.filter(x=>x.weight_kg!=null).map(x=>Number(x.weight_kg)));
+  $('cpHistory').innerHTML=c.length?[...c].reverse().slice(0,20).map(x=>`<div class="hist"><div class="mut">${fmt(x.measured_at)}</div><div><b>${x.weight_kg!=null?num(x.weight_kg)+' kg':'Checkpoint'}</b><div class="mut">${x.waist_cm!=null?'cintura '+num(x.waist_cm)+' cm':''}${x.body_fat_pct!=null?' • gordura '+num(x.body_fat_pct)+'%':''}${x.notes?' • '+esc(x.notes):''}</div></div><span class="status">${x.energy?`energia ${x.energy}/5`:'salvo'}</span></div>`).join(''):'<div class="mut" style="padding:18px 0">Nenhum checkpoint ainda.</div>';
+  $('cpForm').elements.measured_at.value=$('cpForm').elements.measured_at.value||iso()
+}
+async function migrateLegacy(){
+  const mk=userKey(LEGACY_DONE);if(localStorage.getItem(mk))return;const old=loadJSON('forca50-state-v2',null);if(!old){localStorage.setItem(mk,'1');return}
+  try{
+    for(const x of (old.sessions||[])){const sets=[];(x.exercises||[]).forEach(e=>(e.sets||[]).forEach((s,i)=>sets.push({planned_exercise_key:e.id,exercise_key:e.id,exercise_name:e.name,set_number:i+1,weight_kg:Number(s.w)||0,reps:Number(s.r)||0,rir:s.rir??null,completed:s.done!==false})));if(sets.length)await performAction('save_session',{session:{client_ref:`legacy-session-${x.id}`,workout_code:x.workoutId,workout_name:x.workoutName,performed_at:x.date,duration_minutes:null,notes:x.notes||'',sets}})}
+    for(const x of (old.checkpoints||[]))await performAction('save_checkpoint',{checkpoint:{client_ref:`legacy-cp-${x.id}`,measured_at:x.date,weight_kg:x.weight,waist_cm:x.waist,chest_cm:x.chest,arm_cm:x.arm,thigh_cm:x.thigh,body_fat_pct:x.bodyfat??null,sleep_hours:x.sleep,energy:x.energy,notes:x.note||''}});
+    localStorage.setItem(mk,'1');await refreshState(false)
+  }catch(e){console.warn('legacy migration pending',e)}
+}
+function renderAll(){renderHeader();setupWorkoutSelect();renderWorkout();renderWeek();renderProgress();renderCP()}
+async function startApp(){
+  if(appStarted)return;appStarted=true;
+  const cached=loadJSON(userKey(CACHE_KEY),null);if(cached){S=cached;renderAll()}
+  await refreshState();await flushQueue();await migrateLegacy();
+  if('serviceWorker'in navigator){navigator.serviceWorker.register('./service-worker.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{})}
+}
+async function main(){
+  const {data:{session},error}=await sb.auth.getSession();
+  if(error)console.warn(error);
+  if(session?.user){await enterApp(session.user)}else openAuth();
+  sb.auth.onAuthStateChange((event,sessionNow)=>{
+    if(sessionNow?.user&&!U){enterApp(sessionNow.user).catch(console.error)}
+    if(event==='SIGNED_OUT'){U=null;appStarted=false;openAuth()}
+  });
+}
+main();
+})();
