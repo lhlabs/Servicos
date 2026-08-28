@@ -1,0 +1,6 @@
+function renderAll(){renderHeader();setupWorkout();renderWorkout();renderWeek();renderProgress();renderCP();$('workoutDuration').textContent=`${Math.max(1,Math.round((Date.now()-workoutStarted)/60000))} min desde abertura`}
+async function startApp(){if(started)return;started=true;const c=loadJSON(userKey(CACHE_KEY),null);if(c){S=c;renderAll()}await refresh();await flushQueue();if('serviceWorker'in navigator)navigator.serviceWorker.register('./service-worker.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{})}
+async function enter(user){U=user;$('authGate').hidden=true;$('shell').hidden=false;await startApp()}
+async function main(){const{data:{session}}=await sb.auth.getSession();if(session?.user)await enter(session.user);else{$('shell').hidden=true;$('authGate').hidden=false}sb.auth.onAuthStateChange((ev,s)=>{if(s?.user&&!U)enter(s.user);if(ev==='SIGNED_OUT'){U=null;started=false;$('shell').hidden=true;$('authGate').hidden=false}})}
+main();
+})();
