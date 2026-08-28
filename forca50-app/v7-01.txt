@@ -1,0 +1,67 @@
+(()=>{
+'use strict';
+const SB_URL='https://judwmajgcrvhaqlkqcci.supabase.co';
+const SB_KEY='sb_publishable_91hCYqYJpqsmQRBwBrcfXg_C86NF1LP';
+const AUTH_KEY='forca50-auth-v7',CACHE_KEY='forca50-cache-v7',QUEUE_KEY='forca50-queue-v7';
+const sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,storageKey:AUTH_KEY}});
+let U=null,S={plan:{days:[],exercises:[],substitutes:[]},sessions:[],checkpoints:[],goals:null},started=false,workoutStarted=Date.now(),timerEnd=0,timerTick=null;
+const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const iso=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const fmt=d=>d?d.split('-').reverse().join('/'):'—';
+const dateAt=s=>{const [y,m,d]=String(s).split('-').map(Number);return new Date(y,m-1,d)};
+const uuid=()=>crypto.randomUUID();
+const num=(v,d=1)=>v==null?'—':Number(v).toFixed(d);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const userKey=k=>`${k}-${U?.id||'guest'}`;
+function loadJSON(k,f){try{return JSON.parse(localStorage.getItem(k)||'')||f}catch{return f}}
+function saveCache(){if(U)localStorage.setItem(userKey(CACHE_KEY),JSON.stringify(S))}
+function qload(){return U?loadJSON(userKey(QUEUE_KEY),[]):[]}function qsave(q){if(U)localStorage.setItem(userKey(QUEUE_KEY),JSON.stringify(q))}
+function setCloud(c,t){const e=$('cloud');e.className='cloud '+(c||'');e.textContent=t}
+function msg(id,text,kind=''){ $(id).innerHTML=`<div class="notice ${kind}">${esc(text)}</div>`}
+function days(){return [...(S.plan.days||[])].sort((a,b)=>a.sort_order-b.sort_order)}
+function exFor(c){return (S.plan.exercises||[]).filter(x=>x.workout_code===c).sort((a,b)=>a.sort_order-b.sort_order)}
+function subsFor(k){return (S.plan.substitutes||[]).filter(x=>x.exercise_key===k).sort((a,b)=>a.sort_order-b.sort_order)}
+function sessionsOn(d){return S.sessions.filter(s=>s.performed_at===d)}
+function totalVolume(){return S.sessions.reduce((a,s)=>a+volumeSession(s),0)}
+function volumeSession(s){return(s.sets||[]).reduce((a,x)=>a+(Number(x.weight_kg)||0)*(Number(x.reps)||0),0)}
+function weekMonday(d=new Date()){const x=new Date(d);const w=(x.getDay()+6)%7;x.setDate(x.getDate()-w);x.setHours(0,0,0,0);return x}
+function weekDates(m=weekMonday()){return Array.from({length:7},(_,i)=>{const x=new Date(m);x.setDate(m.getDate()+i);return x})}
+function weeklyTarget(){return Number(S.goals?.weekly_sessions_target)||5}
+function trainedDaysInRange(ds){return new Set(S.sessions.filter(s=>ds.includes(s.performed_at)).map(s=>s.performed_at)).size}
+function currentWeekCount(){return trainedDaysInRange(weekDates().map(iso))}
+function e1(w,r){w=Number(w)||0;r=Number(r)||0;return w>0&&r>0?w*(1+r/30):0}
+function unitFor(k){return k==='body_fat_pct'?'%':k==='weight_kg'?'kg':'cm'}
+const bodyLabels={weight_kg:'Peso',waist_cm:'Cintura',chest_cm:'Peito',arm_cm:'Braço',thigh_cm:'Coxa',body_fat_pct:'% gordura'};
+const goalKeys={weight_kg:'target_weight_kg',waist_cm:'target_waist_cm',chest_cm:'target_chest_cm',arm_cm:'target_arm_cm',thigh_cm:'target_thigh_cm',body_fat_pct:'target_body_fat_pct'};
+
+async function loadRemote(){
+ const [d,e,s,se,st,c,g]=await Promise.all([
+  sb.from('forca50_workout_days').select('*').eq('is_active',true).order('sort_order'),
+  sb.from('forca50_exercises').select('*').eq('is_active',true).order('workout_code').order('sort_order'),
+  sb.from('forca50_exercise_substitutes').select('*').eq('is_active',true).order('exercise_key').order('sort_order'),
+  sb.from('forca50_sessions').select('*').eq('user_id',U.id).order('performed_at',{ascending:false}).limit(800),
+  sb.from('forca50_sets').select('*').eq('user_id',U.id).order('created_at',{ascending:true}).limit(8000),
+  sb.from('forca50_checkpoints').select('*').eq('user_id',U.id).order('measured_at',{ascending:false}).limit(800),
+  sb.from('forca50_goals').select('*').eq('user_id',U.id).maybeSingle()
+ ]);
+ const er=d.error||e.error||s.error||se.error||st.error||c.error||g.error;if(er)throw er;
+ const by=new Map();for(const x of(st.data||[])){const a=by.get(x.session_id)||[];a.push(x);by.set(x.session_id,a)}
+ return{plan:{days:d.data||[],exercises:e.data||[],substitutes:s.data||[]},sessions:(se.data||[]).map(x=>({...x,sets:by.get(x.id)||[]})),checkpoints:c.data||[],goals:g.data||null}
+}
+async function saveSessionCloud(x){
+ const row={user_id:U.id,client_ref:x.client_ref,workout_code:x.workout_code,workout_name:x.workout_name,performed_at:x.performed_at,duration_minutes:x.duration_minutes||null,notes:x.notes||null,updated_at:new Date().toISOString()};
+ const {data:f,error:fe}=await sb.from('forca50_sessions').select('id').eq('user_id',U.id).eq('client_ref',x.client_ref).maybeSingle();if(fe)throw fe;
+ let id=f?.id;if(id){const{error}=await sb.from('forca50_sessions').update(row).eq('id',id).eq('user_id',U.id);if(error)throw error}else{const{data,error}=await sb.from('forca50_sessions').insert(row).select('id').single();if(error)throw error;id=data.id}
+ const{error:de}=await sb.from('forca50_sets').delete().eq('user_id',U.id).eq('session_id',id);if(de)throw de;
+ const rows=(x.sets||[]).map((z,i)=>({user_id:U.id,session_id:id,planned_exercise_key:z.planned_exercise_key||z.exercise_key,exercise_key:z.exercise_key,exercise_name:z.exercise_name,set_number:z.set_number||i+1,weight_kg:Number(z.weight_kg)||0,reps:Math.max(0,Math.floor(Number(z.reps)||0)),rir:z.rir==null?null:Number(z.rir),completed:z.completed!==false}));
+ if(rows.length){const{error}=await sb.from('forca50_sets').insert(rows);if(error)throw error}return id
+}
+async function saveCheckpointCloud(c){
+ const row={user_id:U.id,client_ref:c.client_ref,measured_at:c.measured_at,weight_kg:c.weight_kg,waist_cm:c.waist_cm,chest_cm:c.chest_cm,arm_cm:c.arm_cm,thigh_cm:c.thigh_cm,body_fat_pct:c.body_fat_pct,sleep_hours:c.sleep_hours,energy:c.energy,notes:c.notes||null};
+ const{data:f,error:fe}=await sb.from('forca50_checkpoints').select('id').eq('user_id',U.id).eq('client_ref',c.client_ref).maybeSingle();if(fe)throw fe;
+ if(f?.id){const{error}=await sb.from('forca50_checkpoints').update(row).eq('id',f.id).eq('user_id',U.id);if(error)throw error;return f.id}
+ const{data,error}=await sb.from('forca50_checkpoints').insert(row).select('id').single();if(error)throw error;return data.id
+}
+async function saveGoalCloud(g){
+ const row={user_id:U.id,...g,updated_at:new Date().toISOString()};const{error}=await sb.from('forca50_goals').upsert(row,{onConflict:'user_id'});if(error)throw error
+}
