@@ -1,110 +1,79 @@
-Name">Carregando...</h1>
-        <p id="todayDesc"></p>
-        <div class="heroActions"><button class="btn primary" id="startToday">Abrir treino</button><button class="btn secondary" data-go="progress">Ver evolução</button></div>
-      </div>
-      <div class="grid">
-        <div class="metric"><b id="mSessions">0</b><span>treinos feitos</span></div>
-        <div class="metric"><b id="mStreak">0</b><span>semana atual</span></div>
-        <div class="metric"><b id="mPRs">0</b><span>recordes</span></div>
-      </div>
-      <div class="section">
-        <div class="sectionHead"><div><h2>Semana</h2><p>3 academia + 2 casa</p></div></div>
-        <div class="cards" id="weekCards"></div>
-      </div>
-      <div class="section">
-        <div class="sectionHead"><div><h2>Últimos registros</h2><p>Histórico salvo neste dispositivo</p></div></div>
-        <div class="card" id="recentSessions"></div>
-      </div>
-    </section>
+rid;grid-template-columns:repeat(2,1fr);gap:9px}.full{grid-column:1/-1}.chart{height:190px;background:#0d1319;border:1px solid var(--line);border-radius:14px;overflow:hidden}.chart svg{width:100%;height:100%;display:block}.history{display:grid}.hist{display:grid;grid-template-columns:82px 1fr auto;gap:10px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}.hist:last-child{border-bottom:0}.loadrow{display:grid;grid-template-columns:1fr auto auto;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);align-items:center}.loadrow:last-child{border-bottom:0}
+.attgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}.attcell{aspect-ratio:1;border:1px solid var(--line);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--mut);background:#121820}.attcell.done{background:#1d3c26;color:var(--green);border-color:#315e3d}.attcell.miss{background:#3a2022;color:#ffaaaa;border-color:#60383a}.attcell.today{background:#323820;color:var(--lime);border-color:#556131}.attcell.rest{opacity:.35}.legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:9px}.legend span{font-size:9px;color:var(--mut)}.lg{width:8px;height:8px;border-radius:3px;display:inline-block;margin-right:4px}
+.timer{display:none;position:fixed;z-index:30;left:50%;transform:translateX(-50%);bottom:82px;width:min(92%,520px);padding:11px 13px;background:#17202a;border:1px solid #3d4f61;border-radius:15px;box-shadow:0 15px 45px #0008;align-items:center;gap:10px}.timer.on{display:flex}.timer b{font-size:20px;color:var(--lime)}.timer .btn{min-height:34px;padding:6px 10px}
+.activation{max-width:520px;margin:8vh auto;padding:22px}.activation h1{font-size:26px}.skeleton{height:100px;border-radius:16px;background:linear-gradient(90deg,#141b23,#202a35,#141b23);background-size:200% 100%;animation:sh 1.3s infinite}@keyframes sh{to{background-position:-200% 0}}
+@media(max-width:620px){.metrics{grid-template-columns:repeat(2,1fr)}.eximg{height:165px}.hist{grid-template-columns:72px 1fr}.hist .status{display:none}}@media(max-width:380px){.app{padding-left:10px;padding-right:10px}.setrow{grid-template-columns:27px 1fr 1fr 52px 29px}.formgrid{grid-template-columns:1fr}.full{grid-column:auto}}
+</style>
+</head>
+<body>
+<div id="activation" class="activation card" hidden>
+  <div class="eyebrow">Força 50 • dispositivo</div>
+  <h1 id="activationTitle">Ativando…</h1>
+  <p class="mut" id="activationText">Preparando a memória segura deste aparelho.</p>
+  <div id="activationMsg"></div>
+</div>
 
-    <section class="view" data-view="workouts">
-      <div class="sectionHead"><div><h2>Treinos</h2><p>Abra, registre e conclua.</p></div></div>
-      <div class="cards" id="workoutList"></div>
-    </section>
+<div id="shell" hidden>
+<main class="app">
+  <header class="top">
+    <div><div class="brand">FORÇA <b>50</b></div><div class="sub">treino • carga • presença • evolução</div></div>
+    <div class="spacer"></div>
+    <div class="cloud" id="cloud">conectando</div>
+  </header>
 
-    <section class="view" data-view="progress">
-      <div class="sectionHead"><div><h2>Evolução</h2><p>Melhores cargas e estimativa de força.</p></div></div>
-      <div class="grid">
-        <div class="metric"><b id="pVolume">0</b><span>kg movidos</span></div>
-        <div class="metric"><b id="pSessions">0</b><span>sessões</span></div>
-        <div class="metric"><b id="pExercises">0</b><span>exercícios</span></div>
+  <section class="view on" id="todayView">
+    <div class="hero">
+      <div class="eyebrow" id="todayEyebrow">Treino de hoje</div>
+      <h1 id="todayName">Carregando…</h1>
+      <div class="mut" id="todayMeta"></div>
+      <div class="actions">
+        <button class="btn primary" id="startToday">Abrir treino</button>
+        <button class="btn secondary" data-nav="progressView">Ver evolução</button>
       </div>
-      <div class="card">
-        <div class="row"><h3>Exercício</h3><div class="spacer"></div><select class="field" id="progressExercise" style="max-width:260px"></select></div>
-        <p class="chartLabel" id="chartSummary">Sem registros.</p>
-        <div class="chart" id="progressChart"></div>
-      </div>
-      <div class="section"><div class="sectionHead"><div><h2>Recordes atuais</h2><p>Maior e1RM por exercício.</p></div></div><div class="card progressList" id="prList"></div></div>
-    </section>
-
-    <section class="view" data-view="checkpoints">
-      <div class="sectionHead"><div><h2>Checkpoints</h2><p>Registre corpo e recuperação 1x/semana.</p></div><button class="btn primary" id="addCheckpoint">Novo</button></div>
-      <div class="grid">
-        <div class="metric"><b id="cWeight">—</b><span>peso atual</span></div>
-        <div class="metric"><b id="cWaist">—</b><span>cintura</span></div>
-        <div class="metric"><b id="cDelta">—</b><span>Δ peso</span></div>
-      </div>
-      <div class="card"><p class="chartLabel">Peso corporal</p><div class="chart" id="weightChart"></div></div>
-      <div class="section"><div class="sectionHead"><div><h2>Histórico</h2></div></div><div class="card" id="checkpointHistory"></div></div>
-    </section>
-
-    <section class="view" data-view="data">
-      <div class="sectionHead"><div><h2>Memória & nuvem</h2><p>Local primeiro; Supabase quando conectado.</p></div></div>
-      <div class="notice">Cada treino e checkpoint é salvo primeiro neste aparelho. Ao entrar na sua conta, o histórico também é sincronizado com a nuvem sem interromper o uso offline.</div>
-      <div class="card" id="cloudCard">
-        <div class="row"><div><h3>Conta & sincronização</h3><p class="sub" id="cloudStateText" style="font-size:13px;margin:5px 0 0">Verificando sessão...</p></div><div class="spacer"></div><span class="tag" id="cloudBadge">local</span></div>
-        <form id="authForm" class="formGrid two" style="margin-top:14px">
-          <div><label class="smallLabel">E-mail</label><input class="field" id="authEmail" type="email" autocomplete="email" required placeholder="seu@email.com"></div>
-          <div><label class="smallLabel">Senha</label><input class="field" id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="••••••••"></div>
-          <div class="full row"><button class="btn primary" type="submit">Entrar</button><button class="btn secondary" type="button" id="signUpBtn">Criar conta</button></div>
-        </form>
-        <div id="signedInBox" style="display:none;margin-top:14px">
-          <div class="checkItem"><div><b id="signedInEmail">Conta conectada</b><div class="sub" id="lastSyncText">Aguardando sincronização.</div></div></div>
-          <div class="row" style="margin-top:12px"><button class="btn primary" type="button" id="syncNow">Sincronizar agora</button><button class="btn secondary" type="button" id="signOutBtn">Sair desta conta</button></div>
-        </div>
-        <div id="authMessage" aria-live="polite"></div>
-      </div>
-      <div class="section card">
-        <h3>Backup local</h3>
-        <p class="sub" style="font-size:13px;margin:7px 0 14px">O JSON continua disponível como segunda camada de segurança.</p>
-        <div class="row"><button class="btn primary" id="exportData">Exportar backup</button><label class="btn secondary" for="importFile" style="display:inline-flex;align-items:center">Importar backup</label><input id="importFile" type="file" accept="application/json" hidden></div>
-      </div>
-      <div class="section card">
-        <h3>Regras do programa</h3>
-        <div class="checklist" style="margin-top:12px">
-          <div class="checkItem">RIR padrão: <b>1–2</b></div>
-          <div class="checkItem">Bateu o topo das reps em todas as séries? <b>suba a carga</b>.</div>
-          <div class="checkItem">Treinos principais: <b>45–50 min</b>.</div>
-          <div class="checkItem">Consistência primeiro. Variedade depois.</div>
-        </div>
-      </div>
-      <div class="section card"><h3>Zona de risco</h3><p class="sub" style="font-size:13px;margin:7px 0 14px">Apaga apenas os registros. A estrutura dos treinos permanece.</p><button class="btn danger" id="resetData">Apagar histórico</button></div>
-    </section>
-  </main>
-
-  <nav class="nav" aria-label="Navegação principal">
-    <button class="active" data-nav="home"><span class="ico">⌂</span>Hoje</button>
-    <button data-nav="workouts"><span class="ico">▤</span>Treinos</button>
-    <button data-nav="progress"><span class="ico">↗</span>Evolução</button>
-    <button data-nav="checkpoints"><span class="ico">◎</span>Checkpoints</button>
-    <button data-nav="data"><span class="ico">◆</span>Dados</button>
-  </nav>
-
-  <div class="modal" id="workoutModal" role="dialog" aria-modal="true" aria-labelledby="workoutTitle">
-    <div class="sheet">
-      <div class="sheetTop"><div><div class="eyebrow" id="workoutPlace">ACADEMIA</div><h2 id="workoutTitle">Treino</h2><div class="sub" id="workoutFocus"></div></div><button class="iconBtn" id="closeWorkout" aria-label="Fechar">✕</button></div>
-      <div id="workoutExercises"></div>
-      <div class="section"><label class="smallLabel" for="workoutNotes">Notas do treino</label><textarea class="field" id="workoutNotes" rows="3" placeholder="Ex.: execução boa, ombro cansado, carga fácil..."></textarea></div>
-      <div class="row"><button class="btn primary" id="finishWorkout">Concluir e salvar</button><button class="btn secondary" id="cancelWorkout">Fechar sem salvar</button></div>
-      <div id="saveMessage" aria-live="polite"></div>
     </div>
-  </div>
+    <div class="metrics">
+      <div class="metric"><b id="mWeek">0/5</b><span>semana</span></div>
+      <div class="metric"><b id="mAttendance">—</b><span>presença 8 sem.</span></div>
+      <div class="metric"><b id="mSessions">0</b><span>treinos</span></div>
+      <div class="metric"><b id="mVolume">0</b><span>kg registrados</span></div>
+    </div>
 
-  <div class="modal" id="checkpointModal" role="dialog" aria-modal="true" aria-labelledby="checkpointTitle">
-    <div class="sheet">
-      <div class="sheetTop"><div><div class="eyebrow">CHECKPOINT</div><h2 id="checkpointTitle">Registrar evolução</h2></div><button class="iconBtn" id="closeCheckpoint" aria-label="Fechar">✕</button></div>
-      <form id="checkpointForm">
-        <div class="formGrid">
-          <div><label class="smallLabel">Data</label><input class="field" name="date" type="date" required></div>
-          <div><label class="smallLabel">Peso (kg)</label><input class="field" name="weight" inputmode="decimal" type="number" min="30" max="250" step="0.1"></div>
-          <div><label class="smallLabel">Cintura (cm)</label><input class="field" name="waist
+    <div class="section">
+      <div class="row"><h2>Treino</h2><div class="spacer"></div><select class="field" id="workoutSelect" style="max-width:330px"></select></div>
+      <div class="cards" id="exerciseList"><div class="skeleton"></div></div>
+    </div>
+    <div class="section card" style="padding:14px">
+      <label class="label">Notas do treino</label>
+      <textarea class="field" id="workoutNotes" rows="3" placeholder="Como foi o treino?"></textarea>
+      <div class="actions">
+        <button class="btn primary" id="saveWorkout">Finalizar e salvar</button>
+        <button class="btn ghost" id="clearWorkout">Limpar</button>
+      </div>
+      <div id="saveMsg" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <section class="view" id="weekView">
+    <h2>Semana & presença</h2>
+    <div class="mut">Cada dia planejado vira concluído, pendente ou falta automaticamente.</div>
+    <div class="section cards" id="weekCards"></div>
+    <div class="section card" style="padding:14px">
+      <div class="row"><h3>Últimas 8 semanas</h3><div class="spacer"></div><span class="mut" id="attSummary"></span></div>
+      <div class="attgrid" id="attendanceGrid" style="margin-top:12px"></div>
+      <div class="legend">
+        <span><i class="lg" style="background:#1d3c26"></i>treino</span>
+        <span><i class="lg" style="background:#3a2022"></i>falta</span>
+        <span><i class="lg" style="background:#323820"></i>hoje</span>
+        <span><i class="lg" style="background:#121820"></i>descanso</span>
+      </div>
+    </div>
+    <div class="section card" style="padding:14px">
+      <h3>Histórico</h3><div id="sessionHistory"></div>
+    </div>
+  </section>
+
+  <section class="view" id="progressView">
+    <h2>Evolução</h2>
+    <div class="metrics">
+      <div class="metric"><b id="pSessions">0</b><span>sessões</span></div>
+      <div class="metric"><b id="pAttendance">—</b><span>presença</span></div>
